@@ -6,13 +6,12 @@
     "name",
     "address",
     "normalized_location",
-    "status",
-    "group",
-    "role",
+    "ownership_group",
+    "store_role",
     "brand",
     "operator",
+    "status",
     "confidence",
-    "review_required",
     "review_reason"
   ],
   "properties": {
@@ -28,17 +27,13 @@
     "normalized_location": {
       "type": "string"
     },
-    "status": {
+    "ownership_group": {
       "type": "string",
-      "enum": ["keep", "review", "trash"]
+      "enum": ["cidef", "competitor", "other", "trash", "unknown"]
     },
-    "group": {
+    "store_role": {
       "type": "string",
-      "enum": ["cidef", "competitor", "other", "unknown"]
-    },
-    "role": {
-      "type": "string",
-      "enum": ["brand_owner", "dealer", "service", "parts", "hub", "other", "trash", "unknown"]
+      "enum": ["own_store", "dealer", "service", "parts", "hub", "other", "trash", "unknown"]
     },
     "brand": {
       "type": "string"
@@ -46,13 +41,14 @@
     "operator": {
       "type": "string"
     },
+    "status": {
+      "type": "string",
+      "enum": ["keep", "review", "trash"]
+    },
     "confidence": {
       "type": "number",
       "minimum": 0,
       "maximum": 1
-    },
-    "review_required": {
-      "type": "boolean"
     },
     "review_reason": {
       "type": "string"
