@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { catalogs, schema } from "../../lib/configData.js";
 import { fetchSheetRows } from "../../lib/sheetCsv.js";
 
 const BATCH_SIZE = 25;
@@ -7,11 +6,8 @@ const BATCH_SIZE = 25;
 export default async function handler(req, res) {
   try {
     const offset = Number(req.query.offset || 0);
-    const [schema, catalogs, rows] = await Promise.all([
-      readJson("config/classification_schema.json"),
-      readJson("config/catalogs.json"),
-      fetchSheetRows()
-    ]);
+
+    const rows = await fetchSheetRows();
 
     const batch = rows
       .slice(offset, offset + BATCH_SIZE)
@@ -38,10 +34,4 @@ export default async function handler(req, res) {
       error: error.message
     });
   }
-}
-
-async function readJson(path) {
-  const fullPath = join(process.cwd(), path);
-  const content = await readFile(fullPath, "utf8");
-  return JSON.parse(content);
 }
