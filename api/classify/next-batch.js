@@ -1,3 +1,5 @@
+import catalogs from "../../config/catalogs.json" assert { type: "json" };
+import schema from "../../config/classification_schema.json" assert { type: "json" };
 import { fetchSheetRows } from "../../lib/sheetCsv.js";
 
 const BATCH_SIZE = 25;
@@ -23,6 +25,8 @@ export default async function handler(req, res) {
       offset,
       next_offset: offset + batch.length,
       batch_size: batch.length,
+      schema,
+      catalogs,
       rows: batch
     });
   } catch (error) {
