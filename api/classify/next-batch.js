@@ -1,7 +1,7 @@
 import { catalogs, schema } from "../../lib/configData.js";
 import { fetchSheetRows } from "../../lib/sheetCsv.js";
 
-const BATCH_SIZE = 25;
+const BATCH_SIZE = 50;
 
 export default async function handler(req, res) {
   try {
