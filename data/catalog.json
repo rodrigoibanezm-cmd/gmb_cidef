@@ -1,0 +1,86 @@
+{
+  "candidate_status": [
+    "keep",
+    "review",
+    "trash"
+  ],
+  "entity_types": [
+    "dealer",
+    "service_center",
+    "automotive_hub",
+    "mall",
+    "multibrand",
+    "parts_store",
+    "other",
+    "trash"
+  ],
+  "operation_types": [
+    "sales",
+    "service",
+    "parts",
+    "sales_and_service",
+    "unknown",
+    "not_applicable"
+  ],
+  "competitive_roles": [
+    "cidef_core",
+    "cidef_dealer",
+    "direct_competitor",
+    "indirect_competitor",
+    "market_context",
+    "infrastructure",
+    "trash"
+  ],
+  "brands": [
+    "dongfeng",
+    "dfsk",
+    "foton",
+    "mg",
+    "changan",
+    "jetour",
+    "gwm",
+    "haval",
+    "chery",
+    "omoda",
+    "jaecoo",
+    "jac",
+    "geely",
+    "byd",
+    "maxus",
+    "suzuki",
+    "renault",
+    "other",
+    "unknown",
+    "not_applicable"
+  ],
+  "operators": [
+    "cidef",
+    "derco",
+    "dercocenter",
+    "salazar_israel",
+    "inchcape",
+    "pompeyo",
+    "rosselot",
+    "yusic",
+    "piamonte",
+    "gellona",
+    "anfruns",
+    "salfa",
+    "kovacs",
+    "melhuish",
+    "forcenter",
+    "klassik_car",
+    "movicenter",
+    "sergio_escobar",
+    "valentini",
+    "suzuval",
+    "other",
+    "unknown",
+    "not_applicable"
+  ],
+  "aliases": {
+    "derco center": "derco",
+    "dercocenter": "derco",
+    "salazar israel": "salazar_israel"
+  }
+}
