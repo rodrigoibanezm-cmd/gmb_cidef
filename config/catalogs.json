@@ -77,14 +77,15 @@
     "review",
     "trash"
   ],
-  "groups": [
+  "ownership_groups": [
     "cidef",
     "competitor",
     "other",
+    "trash",
     "unknown"
   ],
-  "roles": [
-    "brand_owner",
+  "store_roles": [
+    "own_store",
     "dealer",
     "service",
     "parts",
@@ -96,8 +97,7 @@
   "rules": {
     "default_when_uncertain": {
       "status": "review",
-      "confidence_max": 0.6,
-      "review_required": true
+      "confidence_max": 0.6
     },
     "do_not_invent_catalog_values": true,
     "preserve_original_name_and_address": true,
