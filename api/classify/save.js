@@ -1,4 +1,4 @@
-import { redisGet, redisSet } from "../../lib/upstash.js";
+import { redisHlen, redisHset } from "../../lib/upstash.js";
 
 const KEY = "gmb:classified:v1";
 
@@ -20,24 +20,23 @@ export default async function handler(req, res) {
       });
     }
 
-    const existing = (await redisGet(KEY)) || [];
-
-    const map = new Map(existing.map((x) => [x.place_id, x]));
+    let saved = 0;
 
     for (const item of items) {
       if (!item.place_id) continue;
-      map.set(item.place_id, item);
+
+      await redisHset(KEY, item.place_id, item);
+      saved++;
     }
 
-    const merged = Array.from(map.values());
-
-    await redisSet(KEY, merged);
+    const total = await redisHlen(KEY);
 
     return res.status(200).json({
       ok: true,
-      saved: items.length,
-      total: merged.length,
-      key: KEY
+      saved,
+      total,
+      key: KEY,
+      storage: "redis_hash"
     });
   } catch (error) {
     return res.status(500).json({
