@@ -1,353 +1,462 @@
-# GMB CIDEF — Base de Inteligencia Reputacional Automotor
+# GMB CIDEF — Inteligencia reputacional automotor
 
-## 1. Resumen ejecutivo
+## 1. Resumen
 
-Este proyecto construye una base inicial del ecosistema automotor chileno usando Google My Business / Google Places como fuente pública.
+Este proyecto construye una base histórica de reputación pública del ecosistema automotor chileno usando Google Places como fuente de captura.
 
-El objetivo no es crear un directorio perfecto.
-
-El objetivo es capturar una red suficientemente amplia de:
-
-- CIDEF,
-- dealers,
-- competencia,
-- postventa,
-- servicio técnico,
-- hubs automotrices,
-- malls,
-- operadores multimarca.
-
-La base permitirá clasificar entidades, limpiar ruido y preparar una capa posterior de análisis reputacional y competitivo.
-
----
-
-## 2. Hechos ya validados
-
-- Existe señal pública suficiente en Google Places / Google My Business para justificar un MVP.
-- La señal útil no está solo en CIDEF; aparece principalmente al sumar dealers, competencia, postventa y hubs automotrices.
-- La competencia tiene mucha más masa reputacional que CIDEF en varios puntos visibles.
-- La estrategia de red de arrastre funcionó: capturó un universo amplio de entidades.
-- El dataset consolidado contiene aproximadamente 1.600 `place_id` únicos.
-- Existe basura en la captura, pero es esperable y manejable.
-- El identificador central del sistema es `place_id`.
-- Los malls son relevantes porque concentran competencia directa a pocos metros.
-- La postventa y el servicio técnico concentran gran parte de la señal reputacional útil.
-
----
-
-## 3. Decisiones de diseño tomadas
-
-- Se prioriza cobertura antes que precisión en la etapa inicial.
-- No se borra basura todavía; se clasifica como `trash`.
-- El CSV original debe permanecer intacto.
-- El LLM no debe recibir el CSV crudo completo.
-- El LLM no debe buscar internet ni inventar contexto.
-- El backend debe entregar lotes pequeños y sanitizados.
-- El tamaño inicial de lote será de 25 filas.
-- El backend valida enums y consistencia.
-- El LLM solo clasifica; no es fuente de verdad.
-- Se usará un catálogo maestro controlado para marcas, operadores y roles competitivos.
-- No se usará vector DB, embeddings ni RAG en esta etapa.
-
----
-
-## 4. Qué hace hoy el sistema
-
-Hoy el proyecto ya tiene una base exploratoria construida a partir de Google Places.
-
-La captura permitió:
-
-- buscar marcas,
-- buscar operadores,
-- buscar postventa,
-- buscar servicio técnico,
-- buscar hubs automotrices,
-- buscar malls,
-- consolidar resultados,
-- deduplicar por `place_id`,
-- generar un archivo maestro inicial.
-
-Archivo principal esperado:
+Decisión central:
 
 ```txt
-master_places.csv
+Google Places se usa solo para ingesta.
+El agente nunca consulta Google Places en runtime.
+El agente lee datos ya descargados e indexados en Upstash.
+```
+
+El objetivo es permitir análisis competitivo por ubicación, marca, operador, rating, volumen de reseñas y evidencia textual.
+
+---
+
+## 2. Estado actual
+
+Ya existe una base clasificada en Upstash:
+
+```txt
+gmb:classified:v1
+```
+
+Formato:
+
+```txt
+HSET gmb:classified:v1 {place_id} {json}
+```
+
+Ejemplo de campos clasificados:
+
+```json
+{
+  "place_id": "...",
+  "name": "DFSK - Servimaq",
+  "address": "...",
+  "brand": "dfsk",
+  "normalized_location": "puerto_montt",
+  "operator": "servimaq",
+  "ownership_group": "cidef",
+  "store_role": "dealer",
+  "status": "keep",
+  "confidence": 0.95
+}
+```
+
+Dato validado actual:
+
+```txt
+727 place_id en gmb:classified:v1
 ```
 
 ---
 
-## 5. Qué NO hace todavía
+## 3. Arquitectura operativa
 
-El sistema todavía no:
+### Fuente base
 
-- lee reviews individuales,
-- clasifica semánticamente reviews,
-- genera alertas,
-- monitorea cambios diarios,
-- tiene dashboard,
-- mide ventas,
-- mide conversión,
-- reemplaza CRM,
-- reemplaza sistemas internos de postventa,
-- tiene clasificación final validada,
-- tiene catálogo maestro definitivo,
-- tiene backend operativo de clasificación por lotes.
+```txt
+gmb:classified:v1
+```
 
-Esta etapa es base exploratoria y de preparación.
+Contiene los `place_id` y clasificación comercial.
 
----
-
-## 6. Componentes existentes
-
-### Scripts de captura
-
-Se usaron scripts PowerShell contra Google Places API v1.
+### Captura diaria barata
 
 Endpoint:
 
 ```txt
-https://places.googleapis.com/v1/places:searchText
+POST /api/gmb/capture/demo?limit=25&offset=0
+POST /api/gmb/capture/demo-next?limit=25
 ```
 
-Campos utilizados:
+Campo Google usado en modo demo:
 
-- `places.id`
-- `places.displayName`
-- `places.formattedAddress`
-- `places.location`
-- `places.rating`
-- `places.userRatingCount`
-- `places.businessStatus`
-- `places.types`
-- `places.primaryType`
-- `places.googleMapsUri`
-- `places.websiteUri`
+```txt
+id,displayName,rating,userRatingCount,primaryType
+```
 
-### Script de consolidación
+No captura reviews.
 
-Se definió un script Python para unir archivos `places*.csv`, deduplicar por `place_id` y generar `master_places.csv`.
+### Captura con reviews
 
----
+Endpoint manual:
 
-## 7. Datasets generados
+```txt
+POST /api/gmb/capture/reviews?limit=10&offset=0
+```
 
-Se generaron archivos CSV de captura exploratoria, entre ellos:
+Endpoint con avance automático:
 
-- seeds Dongfeng / CIDEF,
-- seeds automotoras,
-- seeds postventa,
-- dataset consolidado.
+```txt
+POST /api/gmb/capture/reviews-next?limit=10
+```
 
-El dataset consolidado contiene aproximadamente:
+Campo Google usado:
 
-- 1.600 IDs únicos,
-- dealers,
-- competencia,
-- malls,
-- hubs,
-- servicio técnico,
-- postventa,
-- ruido no automotor.
+```txt
+id,displayName,rating,userRatingCount,primaryType,reviews
+```
+
+Se fuerza idioma español:
+
+```txt
+languageCode=es
+```
+
+La captura con reviews es para demo o corridas puntuales, no para cron diario.
 
 ---
 
-## 8. Modelo de clasificación definido
+## 4. Keys principales en Upstash
 
-La clasificación debe producir JSON estructurado.
+### Fuente clasificada
 
-### Output esperado por fila
+```txt
+gmb:classified:v1
+```
+
+### Snapshots diarios
+
+```txt
+gmb:snapshot:{YYYY-MM-DD}:{place_id}
+```
+
+Ejemplo:
 
 ```json
 {
-  "place_id": "",
-  "candidate_status": "keep",
-  "entity_type": "dealer",
-  "primary_brand": "dongfeng",
-  "all_brands": ["dongfeng", "dfsk"],
-  "operator": "cidef",
-  "competitive_role": "cidef_core",
-  "operation_type": "sales_and_service",
-  "confidence": 0.91,
-  "review_required": false,
-  "review_reason": ""
+  "captured_at": "2026-05-14T13:54:36.944Z",
+  "captured_date": "2026-05-14",
+  "place_id": "...",
+  "name": "DFSK - Servimaq",
+  "rating": 4.9,
+  "review_count": 20,
+  "primary_type": "car_dealer",
+  "source": "google_places_demo_no_reviews"
+}
+```
+
+### Reviews históricas
+
+```txt
+gmb:review:{YYYY-MM-DD}:{place_id}:{review_hash}
+```
+
+Ejemplo:
+
+```json
+{
+  "captured_at": "2026-05-14T13:54:36.944Z",
+  "captured_date": "2026-05-14",
+  "place_id": "...",
+  "review_hash": "...",
+  "author": "...",
+  "review_date": "2025-11-17T13:43:52Z",
+  "rating": 1,
+  "text": "Texto en español",
+  "language": "es",
+  "original_text": "...",
+  "original_language": "...",
+  "source": "google_places_reviews_once"
+}
+```
+
+Regla de hash:
+
+```txt
+place_id + author + rating + publishTime
+```
+
+No se usa el texto para hashear, porque el texto cambia si Google traduce la review.
+
+### Estado de captura
+
+```txt
+gmb:capture:run:{YYYY-MM-DD}
+gmb:capture:reviews:run:{YYYY-MM-DD}
+```
+
+---
+
+## 5. Índices
+
+Los endpoints runtime no deben calcular todo leyendo snapshots/reviews.
+
+Primero se construyen índices:
+
+```txt
+POST /api/gmb/index/build?date=2026-05-14
+```
+
+Este endpoint genera:
+
+```txt
+gmb:index:{date}:snapshot_keys
+gmb:index:{date}:place_ids
+gmb:index:{date}:review_keys
+gmb:index:{date}:place:{place_id}:review_keys
+gmb:index:{date}:locations
+gmb:index:{date}:location:{location}:ranking
+```
+
+Ejemplo de resultado real:
+
+```json
+{
+  "ok": true,
+  "date": "2026-05-14",
+  "snapshots": 632,
+  "places": 632,
+  "reviews": 1886,
+  "places_with_reviews": 425,
+  "locations": 65,
+  "ranked_locations": 62
 }
 ```
 
 ---
 
-## 9. Enums definidos
+## 6. Contrato de lectura del agente
 
-### `candidate_status`
+El agente debe leer solo desde índices y datos persistidos.
 
-```txt
-keep
-review
-trash
-```
-
-### `entity_type`
+### Resumen global
 
 ```txt
-dealer
-service_center
-automotive_hub
-mall
-multibrand
-parts_store
-other
-trash
+GET /api/compare-all?date=2026-05-14
 ```
 
-### `operation_type`
+Debe leer:
 
 ```txt
-sales
-service
-parts
-sales_and_service
-unknown
-not_applicable
+gmb:index:{date}:locations
 ```
 
-### `competitive_role`
+No debe leer Google.
+No debe leer reviews.
+No debe reconstruir rankings en runtime.
+
+### Ranking por ubicación
 
 ```txt
-cidef_core
-cidef_dealer
-direct_competitor
-indirect_competitor
-market_context
-infrastructure
-trash
+GET /api/compare?mall=puerto_montt&date=2026-05-14
 ```
 
----
-
-## 10. Campos clave
-
-### `primary_brand`
-
-Marca dominante visible en el registro.
-
-### `all_brands`
-
-Lista de marcas visibles o asociadas.
-
-Esto es importante porque varios dealers son multimarca.
-
-### `operator`
-
-Dealer u operador principal.
-
-Ejemplos:
-
-- `cidef`
-- `derco`
-- `inchcape`
-- `rosselot`
-- `pompeyo`
-- `yusic`
-- `salazar_israel`
-
-### `competitive_role`
-
-Rol competitivo de la entidad respecto al universo CIDEF / Dongfeng.
-
----
-
-## 11. Flujo operativo propuesto
-
-El flujo de clasificación será por lotes.
+Debe leer:
 
 ```txt
-1. Backend lee master_places.csv
-2. Backend entrega 25 filas pendientes y sanitizadas
-3. LLM clasifica usando catálogo maestro
-4. LLM devuelve JSON estructurado
-5. Backend valida enums y place_id
-6. Backend guarda resultado incremental
-7. Se repite hasta terminar
+gmb:index:{date}:location:{location}:ranking
 ```
 
-El LLM solo debe recibir:
+Por defecto no devuelve reviews.
 
-```json
-{
-  "place_id": "",
-  "name": "",
-  "address": "",
-  "types": "",
-  "query_origin": ""
-}
+### Ranking con evidencia textual
+
+```txt
+GET /api/compare?mall=puerto_montt&date=2026-05-14&include_reviews=true&evidence_limit=3
 ```
 
-No debe recibir el CSV crudo completo.
+Solo en este caso lee:
+
+```txt
+gmb:index:{date}:place:{place_id}:review_keys
+gmb:review:{date}:{place_id}:{review_hash}
+```
 
 ---
 
-## 12. Catálogo maestro
+## 7. Endpoints actuales
 
-El backend debe proveer un catálogo maestro con:
+### Captura demo sin reviews
 
-- marcas válidas,
-- operadores válidos,
-- aliases,
-- roles competitivos,
-- tipos de entidad,
-- tipos de operación.
+```txt
+POST /api/gmb/capture/demo?limit=25&offset=0
+POST /api/gmb/capture/demo-next?limit=25
+```
 
-Regla:
+### Captura con reviews
 
-- El LLM solo puede usar valores del catálogo.
-- Si no está seguro, debe usar `unknown` y marcar `review_required = true`.
+```txt
+POST /api/gmb/capture/reviews?limit=10&offset=0
+POST /api/gmb/capture/reviews-next?limit=10
+```
 
----
+### Construcción de índices
 
-## 13. Riesgos conocidos
+```txt
+POST /api/gmb/index/build?date=2026-05-14
+```
 
-- Google Places devuelve entidades mezcladas y nombres inconsistentes.
-- Los malls inflan artificialmente el volumen de reviews.
-- Algunos dealers son multimarca y pueden ser difíciles de clasificar.
-- Algunas entidades pueden ser infraestructura útil, no competencia directa.
-- La captura amplia trae basura inevitable.
-- El rating promedio aislado no sirve como insight suficiente.
-- Sin clasificación, el análisis queda contaminado.
+### Lectura analítica
 
----
+```txt
+GET /api/compare-all?date=2026-05-14
+GET /api/compare?mall=puerto_montt&date=2026-05-14
+GET /api/compare?mall=puerto_montt&date=2026-05-14&include_reviews=true&evidence_limit=3
+```
 
-## 14. Pendientes inmediatos
+### Debug
 
-1. Crear backend mínimo de clasificación por lotes.
-2. Definir catálogo maestro inicial.
-3. Clasificar `master_places.csv`.
-4. Exportar dataset limpio.
-5. Revisar manualmente casos `review`.
-6. Recién después capturar reviews individuales por `place_id`.
+```txt
+GET /api/gmb/debug/classified-sample?limit=3
+```
 
 ---
 
-## 15. Impacto esperado
+## 8. Variables de entorno
 
-Este sistema puede impactar:
+En Vercel:
 
-- gerencia comercial,
-- reputación,
-- postventa,
-- evaluación de dealers,
-- benchmark competitivo,
-- expansión retail,
-- entrenamiento comercial,
-- percepción de marcas chinas,
-- detección temprana de quiebres operacionales.
+```txt
+KV_REST_API_URL
+KV_REST_API_TOKEN
+GOOGLE_MAPS_API_KEY
+```
+
+La API key de Google debe tener habilitada:
+
+```txt
+Places API (New)
+```
+
+Para pruebas iniciales puede estar sin restricción de aplicación. Luego debe restringirse correctamente.
 
 ---
 
-## 16. Principio rector
+## 9. Reglas de costo
+
+Modo barato:
+
+```txt
+captura demo sin reviews
+```
+
+Uso recomendado:
+
+```txt
+1 corrida diaria como máximo
+sin reviews
+```
+
+Modo enriquecido:
+
+```txt
+captura con reviews
+```
+
+Uso recomendado:
+
+```txt
+corridas puntuales para demo o análisis profundo
+no cron diario
+```
+
+Con 727 places:
+
+```txt
+1 corrida completa = 727 Place Details
+```
+
+La captura con reviews potencia el demo, pero debe ejecutarse controladamente.
+
+---
+
+## 10. Decisiones de diseño importantes
+
+- El `place_id` es el identificador central.
+- El agente no consulta Google Places.
+- Google Places es fuente de ingesta, no fuente operacional.
+- Upstash guarda snapshots, reviews e índices.
+- Los endpoints de análisis deben leer índices precalculados.
+- `compare-all` debe ser liviano.
+- Reviews solo se leen cuando se pide evidencia.
+- El hash de review no usa texto.
+- `normalized_location` reemplaza a `mall` como agrupador principal.
+- `ownership_group` diferencia CIDEF vs competencia.
+- `store_role` distingue dealer, service y parts.
+
+---
+
+## 11. Problemas detectados y decisiones correctivas
+
+### Problema: compare-all lento
+
+Causa:
+
+```txt
+comparaba todas las ubicaciones reconstruyendo rankings en runtime
+```
+
+Corrección:
+
+```txt
+precalcular gmb:index:{date}:locations
+```
+
+### Problema: reviews duplicadas inglés/español
+
+Causa:
+
+```txt
+review_hash usaba texto traducido
+```
+
+Corrección:
+
+```txt
+review_hash usa place_id + author + rating + publishTime
+```
+
+### Problema: agrupación vacía
+
+Causa:
+
+```txt
+se buscaba mall, pero la clasificación usa normalized_location
+```
+
+Corrección:
+
+```txt
+usar normalized_location como agrupador
+```
+
+---
+
+## 12. Pendientes inmediatos
+
+1. Ajustar índice para filtrar `store_role=dealer` por defecto en rankings comerciales.
+2. Excluir ubicaciones con `stores_count=0` del índice global.
+3. Compactar `top` en `compare-all` para no exponer `place_id` si no es necesario.
+4. Crear endpoint separado de evidencia:
+
+```txt
+GET /api/evidence?place_id=...&date=2026-05-14&limit=5
+```
+
+5. Documentar contrato final del agente.
+6. Agregar protección para evitar capturas con reviews repetidas accidentalmente.
+
+---
+
+## 13. Principio rector
 
 La mejor solución es la más simple.
 
-En esta etapa:
+En este proyecto eso significa:
 
-- CSV antes que base de datos,
-- clasificación por lotes antes que automatización total,
-- catálogo cerrado antes que inferencia libre,
-- validación backend antes que confianza ciega en el LLM.
+```txt
+capturar una vez
+persistir
+indexar
+consultar índices
+```
+
+No calcular todo en runtime.
+No consultar Google desde el agente.
+No resolver por casuística cuando corresponde diseñar el índice correcto.
