@@ -1,0 +1,78 @@
+import { capturePlacesDemo } from "../../../lib/gmb/capturePlacesDemo.js";
+import { gmbCaptureKeys } from "../../../lib/gmb/keys.js";
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function parseNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function redisCommand(command) {
+  const response = await fetch(process.env.KV_REST_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(command),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Upstash error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.result;
+}
+
+async function readRun(date) {
+  const raw = await redisCommand(["GET", gmbCaptureKeys.run(date)]);
+  return raw ? JSON.parse(raw) : null;
+}
+
+async function saveRun(date, run) {
+  await redisCommand(["SET", gmbCaptureKeys.run(date), JSON.stringify(run)]);
+}
+
+function buildNextRun(previousRun, result, limit) {
+  return {
+    captured_date: result.captured_date,
+    total: result.total,
+    limit,
+    next_offset: result.next_offset,
+    saved: Number(previousRun?.saved || 0) + result.saved,
+    failed: Number(previousRun?.failed || 0) + result.failed,
+    done: result.done,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, error: "method_not_allowed" });
+  }
+
+  try {
+    const date = today();
+    const limit = parseNumber(req.query.limit, 25);
+    const run = await readRun(date);
+
+    if (run?.done) {
+      return res.status(200).json({ ok: true, skipped: true, run });
+    }
+
+    const offset = Number(run?.next_offset || 0);
+    const result = await capturePlacesDemo({ limit, offset });
+    const nextRun = buildNextRun(run, result, limit);
+
+    await saveRun(date, nextRun);
+
+    return res.status(200).json({ ok: true, result, run: nextRun });
+  } catch (error) {
+    console.error("capture demo-next failed", error);
+    return res.status(500).json({ ok: false, error: "capture_demo_next_failed" });
+  }
+}
