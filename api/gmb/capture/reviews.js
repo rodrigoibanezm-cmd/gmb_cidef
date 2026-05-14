@@ -5,9 +5,17 @@ function parseNumber(value, fallback) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
+function hasConfirm(req) {
+  return req.query.confirm === "true";
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "method_not_allowed" });
+  }
+
+  if (!hasConfirm(req)) {
+    return res.status(400).json({ ok: false, error: "reviews_capture_requires_confirm" });
   }
 
   try {
