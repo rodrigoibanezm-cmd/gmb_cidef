@@ -2,23 +2,50 @@
 
 ## 1. Resumen
 
-Este proyecto construye una base histórica de reputación pública del ecosistema automotor chileno usando Google Places como fuente de captura.
+Este proyecto construye una base histórica de reputación pública del ecosistema automotor chileno usando Google Places como fuente de ingesta.
 
 Decisión central:
 
 ```txt
-Google Places se usa solo para ingesta.
+Google Places se usa solo para captura.
 El agente nunca consulta Google Places en runtime.
-El agente lee datos ya descargados e indexados en Upstash.
+El agente consulta JSON generado desde Upstash e índices.
 ```
 
-El objetivo es permitir análisis competitivo por ubicación, marca, operador, rating, volumen de reseñas y evidencia textual.
+El objetivo es tener un motor comparativo capaz de responder preguntas de reputación por ubicación, marca, operador, rol de tienda, rating, volumen de reseñas, brechas competitivas y evidencia textual.
 
 ---
 
-## 2. Estado actual
+## 2. Principio de arquitectura
 
-Ya existe una base clasificada en Upstash:
+El backend no debe “pensar” ni escribir respuestas ejecutivas.
+
+El backend debe:
+
+```txt
+recibir una query estructurada
+validar contrato
+ejecutar contra datos persistidos/indexados
+devolver JSON controlado
+```
+
+El agente debe:
+
+```txt
+entender la pregunta
+construir compare_query
+llamar al backend
+interpretar el JSON
+responder en lenguaje ejecutivo
+```
+
+No se usa SQL libre. Se usa un DSL cerrado tipo `compare_query`.
+
+---
+
+## 3. Estado actual
+
+Base clasificada en Upstash:
 
 ```txt
 gmb:classified:v1
@@ -30,7 +57,7 @@ Formato:
 HSET gmb:classified:v1 {place_id} {json}
 ```
 
-Ejemplo de campos clasificados:
+Ejemplo:
 
 ```json
 {
@@ -47,7 +74,7 @@ Ejemplo de campos clasificados:
 }
 ```
 
-Dato validado actual:
+Dato validado:
 
 ```txt
 727 place_id en gmb:classified:v1
@@ -55,64 +82,50 @@ Dato validado actual:
 
 ---
 
-## 3. Arquitectura operativa
+## 4. Captura histórica
 
-### Fuente base
-
-```txt
-gmb:classified:v1
-```
-
-Contiene los `place_id` y clasificación comercial.
-
-### Captura diaria barata
-
-Endpoint:
+### Captura demo barata, sin reviews
 
 ```txt
 POST /api/gmb/capture/demo?limit=25&offset=0
 POST /api/gmb/capture/demo-next?limit=25
 ```
 
-Campo Google usado en modo demo:
+Field mask:
 
 ```txt
 id,displayName,rating,userRatingCount,primaryType
 ```
 
-No captura reviews.
-
 ### Captura con reviews
-
-Endpoint manual:
 
 ```txt
 POST /api/gmb/capture/reviews?limit=10&offset=0
-```
-
-Endpoint con avance automático:
-
-```txt
 POST /api/gmb/capture/reviews-next?limit=10
 ```
 
-Campo Google usado:
+Field mask:
 
 ```txt
 id,displayName,rating,userRatingCount,primaryType,reviews
 ```
 
-Se fuerza idioma español:
+Se fuerza español:
 
 ```txt
 languageCode=es
 ```
 
-La captura con reviews es para demo o corridas puntuales, no para cron diario.
+Regla:
+
+```txt
+reviews = corrida puntual para demo/análisis
+no cron diario
+```
 
 ---
 
-## 4. Keys principales en Upstash
+## 5. Keys principales en Upstash
 
 ### Fuente clasificada
 
@@ -120,91 +133,74 @@ La captura con reviews es para demo o corridas puntuales, no para cron diario.
 gmb:classified:v1
 ```
 
-### Snapshots diarios
+### Snapshots
 
 ```txt
-gmb:snapshot:{YYYY-MM-DD}:{place_id}
+gmb:snapshot:{date}:{place_id}
 ```
 
-Ejemplo:
-
-```json
-{
-  "captured_at": "2026-05-14T13:54:36.944Z",
-  "captured_date": "2026-05-14",
-  "place_id": "...",
-  "name": "DFSK - Servimaq",
-  "rating": 4.9,
-  "review_count": 20,
-  "primary_type": "car_dealer",
-  "source": "google_places_demo_no_reviews"
-}
-```
-
-### Reviews históricas
+### Reviews
 
 ```txt
-gmb:review:{YYYY-MM-DD}:{place_id}:{review_hash}
+gmb:review:{date}:{place_id}:{review_hash}
 ```
 
-Ejemplo:
-
-```json
-{
-  "captured_at": "2026-05-14T13:54:36.944Z",
-  "captured_date": "2026-05-14",
-  "place_id": "...",
-  "review_hash": "...",
-  "author": "...",
-  "review_date": "2025-11-17T13:43:52Z",
-  "rating": 1,
-  "text": "Texto en español",
-  "language": "es",
-  "original_text": "...",
-  "original_language": "...",
-  "source": "google_places_reviews_once"
-}
-```
-
-Regla de hash:
+Hash estable:
 
 ```txt
 place_id + author + rating + publishTime
 ```
 
-No se usa el texto para hashear, porque el texto cambia si Google traduce la review.
+No se usa el texto para hashear, porque Google puede traducir la review y cambiar el texto.
 
 ### Estado de captura
 
 ```txt
-gmb:capture:run:{YYYY-MM-DD}
-gmb:capture:reviews:run:{YYYY-MM-DD}
+gmb:capture:run:{date}
+gmb:capture:reviews:run:{date}
 ```
 
 ---
 
-## 5. Índices
+## 6. Índices actuales
 
-Los endpoints runtime no deben calcular todo leyendo snapshots/reviews.
-
-Primero se construyen índices:
+Se construyen con:
 
 ```txt
 POST /api/gmb/index/build?date=2026-05-14
 ```
 
-Este endpoint genera:
+Genera:
 
 ```txt
 gmb:index:{date}:snapshot_keys
 gmb:index:{date}:place_ids
 gmb:index:{date}:review_keys
 gmb:index:{date}:place:{place_id}:review_keys
-gmb:index:{date}:locations
-gmb:index:{date}:location:{location}:ranking
 ```
 
-Ejemplo de resultado real:
+Y rankings por rol:
+
+```txt
+gmb:index:{date}:locations:dealer
+gmb:index:{date}:locations:service
+gmb:index:{date}:locations:parts
+gmb:index:{date}:locations:all
+
+gmb:index:{date}:location:{location}:ranking:dealer
+gmb:index:{date}:location:{location}:ranking:service
+gmb:index:{date}:location:{location}:ranking:parts
+gmb:index:{date}:location:{location}:ranking:all
+```
+
+Compatibilidad actual:
+
+```txt
+gmb:index:{date}:locations = dealer
+gmb:index:{date}:location:{location}:ranking = dealer
+```
+
+Resultado validado reciente:
 
 ```json
 {
@@ -214,90 +210,278 @@ Ejemplo de resultado real:
   "places": 632,
   "reviews": 1886,
   "places_with_reviews": 425,
-  "locations": 65,
-  "ranked_locations": 62
+  "locations": 58,
+  "ranked_locations": 58
 }
 ```
 
 ---
 
-## 6. Contrato de lectura del agente
+## 7. Motor `compare_query v1`
 
-El agente debe leer solo desde índices y datos persistidos.
-
-### Resumen global
+Endpoint principal:
 
 ```txt
-GET /api/compare-all?date=2026-05-14
+POST /api/query/compare
 ```
 
-Debe leer:
+Archivo de contrato:
 
 ```txt
-gmb:index:{date}:locations
+lib/gmb/queryContract.js
 ```
 
-No debe leer Google.
-No debe leer reviews.
-No debe reconstruir rankings en runtime.
-
-### Ranking por ubicación
+Archivo ejecutor:
 
 ```txt
-GET /api/compare?mall=puerto_montt&date=2026-05-14
+lib/gmb/queryExecutor.js
 ```
 
-Debe leer:
+El contrato normaliza y valida:
 
 ```txt
-gmb:index:{date}:location:{location}:ranking
+scope: intra | extra
+dimension: location | brand | operator | store_role
+metric: rating | reviews_count | gap_vs_top | position
+ownership_group: own | competitor | all
+store_role: dealer | service | parts | all
+sort: asc | desc
 ```
 
-Por defecto no devuelve reviews.
+Defaults:
 
-### Ranking con evidencia textual
-
-```txt
-GET /api/compare?mall=puerto_montt&date=2026-05-14&include_reviews=true&evidence_limit=3
+```json
+{
+  "scope": "extra",
+  "dimension": "location",
+  "metric": "gap_vs_top",
+  "filters": {
+    "ownership_group": "all",
+    "own_values": ["own"],
+    "store_role": "dealer",
+    "valid_only": true
+  },
+  "output": {
+    "max_rows": 50,
+    "include_evidence": false,
+    "evidence_per_row": 3,
+    "sort": "desc"
+  }
+}
 ```
 
-Solo en este caso lee:
+Límites de salida:
 
 ```txt
-gmb:index:{date}:place:{place_id}:review_keys
-gmb:review:{date}:{place_id}:{review_hash}
+max_rows default 50, hard max 200
+evidence_per_row default 3, hard max 10
+```
+
+Importante:
+
+```txt
+limit/max_rows controla salida, no profundidad de análisis.
+El backend puede leer todo el universo indexado.
+El agente no debe recibir 727 registros crudos salvo caso excepcional.
 ```
 
 ---
 
-## 7. Endpoints actuales
+## 8. Agnosticismo del motor
 
-### Captura demo sin reviews
+El motor no debe hardcodear CIDEF.
+
+`own` se define por query/configuración:
+
+```json
+{
+  "filters": {
+    "ownership_group": "own",
+    "own_values": ["cidef"],
+    "store_role": "dealer",
+    "valid_only": true
+  }
+}
+```
+
+Para otro cliente:
+
+```json
+{
+  "filters": {
+    "ownership_group": "own",
+    "own_values": ["cliente_x"],
+    "store_role": "dealer",
+    "valid_only": true
+  }
+}
+```
+
+Regla:
+
+```txt
+CIDEF es configuración, no lógica del motor.
+```
+
+Pendiente futuro:
+
+```txt
+client_config
+```
+
+Ejemplo conceptual:
+
+```json
+{
+  "client_id": "cidef",
+  "own_values": ["cidef"]
+}
+```
+
+---
+
+## 9. Scope `extra`
+
+Compara cliente vs mercado/competencia.
+
+Ejemplo: mayores brechas válidas contra el líder local.
+
+```json
+{
+  "date": "2026-05-14",
+  "scope": "extra",
+  "dimension": "location",
+  "metric": "gap_vs_top",
+  "filters": {
+    "ownership_group": "all",
+    "own_values": ["cidef"],
+    "store_role": "dealer",
+    "valid_only": true
+  },
+  "output": {
+    "max_rows": 10,
+    "sort": "desc"
+  }
+}
+```
+
+Respuesta esperada:
+
+```txt
+ubicaciones con gap_vs_top ordenadas
+solo con señales válidas si valid_only=true
+```
+
+`valid_only=true` significa:
+
+```txt
+solo señales con confidence media o alta
+```
+
+---
+
+## 10. Scope `intra`
+
+Compara dentro del universo propio definido por `own_values`.
+
+Ejemplo: peores ubicaciones propias válidas por rating.
+
+```json
+{
+  "date": "2026-05-14",
+  "scope": "intra",
+  "dimension": "location",
+  "metric": "rating",
+  "filters": {
+    "ownership_group": "own",
+    "own_values": ["cidef"],
+    "store_role": "dealer",
+    "valid_only": true
+  },
+  "output": {
+    "max_rows": 20,
+    "sort": "asc"
+  }
+}
+```
+
+Validado:
+
+```txt
+row_count: 15
+```
+
+Lectura del resultado validado:
+
+```txt
+mall_plaza_egana aparece como peor ubicación propia válida
+rating 2.9
+reviews 10
+confidence media
+```
+
+---
+
+## 11. Preguntas que debe responder el agente
+
+### Comparación externa
+
+```txt
+¿Dónde mi red pierde más contra el líder local?
+¿Dónde lidero?
+¿En qué ubicaciones tengo gap bajo pero volumen alto?
+¿Qué competidor lidera en cada zona?
+¿Qué ubicaciones tienen competencia fuerte y presencia propia débil?
+```
+
+### Comparación interna
+
+```txt
+¿Cuáles son mis peores ubicaciones propias?
+¿Qué operador propio rinde peor?
+¿Qué marca propia tiene peor reputación?
+¿Venta, servicio o repuestos están peor evaluados?
+¿Qué locales propios tienen señal válida suficiente para intervenir?
+```
+
+### Evidencia textual
+
+```txt
+¿Qué dicen las reviews malas?
+Dame 3 evidencias reales.
+¿Qué temas aparecen: atención, espera, servicio técnico, repuestos?
+```
+
+---
+
+## 12. Endpoints actuales
+
+### Captura
 
 ```txt
 POST /api/gmb/capture/demo?limit=25&offset=0
 POST /api/gmb/capture/demo-next?limit=25
-```
-
-### Captura con reviews
-
-```txt
 POST /api/gmb/capture/reviews?limit=10&offset=0
 POST /api/gmb/capture/reviews-next?limit=10
 ```
 
-### Construcción de índices
+### Índices
 
 ```txt
 POST /api/gmb/index/build?date=2026-05-14
 ```
 
-### Lectura analítica
+### Query engine
+
+```txt
+POST /api/query/compare
+```
+
+### Lectura legacy / compatibilidad
 
 ```txt
 GET /api/compare-all?date=2026-05-14
 GET /api/compare?mall=puerto_montt&date=2026-05-14
-GET /api/compare?mall=puerto_montt&date=2026-05-14&include_reviews=true&evidence_limit=3
 ```
 
 ### Debug
@@ -308,7 +492,7 @@ GET /api/gmb/debug/classified-sample?limit=3
 
 ---
 
-## 8. Variables de entorno
+## 13. Variables de entorno
 
 En Vercel:
 
@@ -324,95 +508,63 @@ La API key de Google debe tener habilitada:
 Places API (New)
 ```
 
-Para pruebas iniciales puede estar sin restricción de aplicación. Luego debe restringirse correctamente.
+---
+
+## 14. Reglas de costo
+
+Costo real:
+
+```txt
+llamadas a Google Places
+```
+
+Costo marginal bajo:
+
+```txt
+lectura de Upstash / índices
+```
+
+Regla:
+
+```txt
+Google solo en captura.
+Runtime solo contra Upstash.
+Reviews no van a cron diario.
+```
 
 ---
 
-## 9. Reglas de costo
+## 15. Problemas detectados y correcciones
 
-Modo barato:
-
-```txt
-captura demo sin reviews
-```
-
-Uso recomendado:
-
-```txt
-1 corrida diaria como máximo
-sin reviews
-```
-
-Modo enriquecido:
-
-```txt
-captura con reviews
-```
-
-Uso recomendado:
-
-```txt
-corridas puntuales para demo o análisis profundo
-no cron diario
-```
-
-Con 727 places:
-
-```txt
-1 corrida completa = 727 Place Details
-```
-
-La captura con reviews potencia el demo, pero debe ejecutarse controladamente.
-
----
-
-## 10. Decisiones de diseño importantes
-
-- El `place_id` es el identificador central.
-- El agente no consulta Google Places.
-- Google Places es fuente de ingesta, no fuente operacional.
-- Upstash guarda snapshots, reviews e índices.
-- Los endpoints de análisis deben leer índices precalculados.
-- `compare-all` debe ser liviano.
-- Reviews solo se leen cuando se pide evidencia.
-- El hash de review no usa texto.
-- `normalized_location` reemplaza a `mall` como agrupador principal.
-- `ownership_group` diferencia CIDEF vs competencia.
-- `store_role` distingue dealer, service y parts.
-
----
-
-## 11. Problemas detectados y decisiones correctivas
-
-### Problema: compare-all lento
+### compare-all lento
 
 Causa:
 
 ```txt
-comparaba todas las ubicaciones reconstruyendo rankings en runtime
+reconstruía rankings y leía demasiado en runtime
 ```
 
 Corrección:
 
 ```txt
-precalcular gmb:index:{date}:locations
+índices por ubicación y rol
 ```
 
-### Problema: reviews duplicadas inglés/español
+### Duplicación de reviews inglés/español
 
 Causa:
 
 ```txt
-review_hash usaba texto traducido
+hash incluía texto traducido
 ```
 
 Corrección:
 
 ```txt
-review_hash usa place_id + author + rating + publishTime
+hash = place_id + author + rating + publishTime
 ```
 
-### Problema: agrupación vacía
+### Agrupación vacía
 
 Causa:
 
@@ -423,40 +575,70 @@ se buscaba mall, pero la clasificación usa normalized_location
 Corrección:
 
 ```txt
-usar normalized_location como agrupador
+normalized_location como agrupador principal
+```
+
+### Señales débiles confundidas con urgencias
+
+Causa:
+
+```txt
+ratings con muy pocas reviews inflaban gaps
+```
+
+Corrección:
+
+```txt
+valid_only=true por defecto
+confidence media/alta para análisis globales
+```
+
+### Motor no agnóstico
+
+Causa:
+
+```txt
+cidef hardcodeado como own
+```
+
+Corrección:
+
+```txt
+own_values viene en la query
 ```
 
 ---
 
-## 12. Pendientes inmediatos
+## 16. Pendientes inmediatos
 
-1. Ajustar índice para filtrar `store_role=dealer` por defecto en rankings comerciales.
-2. Excluir ubicaciones con `stores_count=0` del índice global.
-3. Compactar `top` en `compare-all` para no exponer `place_id` si no es necesario.
-4. Crear endpoint separado de evidencia:
+1. Crear `client_config` para no pasar `own_values` manualmente.
+2. Crear endpoint de evidencia:
 
 ```txt
 GET /api/evidence?place_id=...&date=2026-05-14&limit=5
 ```
 
-5. Documentar contrato final del agente.
-6. Agregar protección para evitar capturas con reviews repetidas accidentalmente.
+3. Integrar `include_evidence=true` en `POST /api/query/compare`.
+4. Compactar outputs para el agente cuando no necesite `place_id`.
+5. Separar endpoints legacy de los nuevos endpoints de query.
+6. Documentar ejemplos de queries naturales → `compare_query`.
 
 ---
 
-## 13. Principio rector
+## 17. Principio rector
 
 La mejor solución es la más simple.
 
-En este proyecto eso significa:
+Para esta etapa:
 
 ```txt
 capturar una vez
-persistir
-indexar
-consultar índices
+persistir en Upstash
+indexar por fecha/rol
+consultar con compare_query cerrado
 ```
 
-No calcular todo en runtime.
-No consultar Google desde el agente.
-No resolver por casuística cuando corresponde diseñar el índice correcto.
+No Google en runtime.
+No SQL libre.
+No endpoints ad hoc por cada pregunta.
+No hardcodear clientes dentro del motor.
