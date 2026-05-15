@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     const run = await readRun(date);
     const result = await capturePlacesDemo({ limit, offset: 0 });
     const nextRun = buildNextRun(run, result, limit);
-    const index = await buildGmbIndexes({ date });
+    const index = result.done ? await buildGmbIndexes({ date }) : null;
 
     await saveRun(date, nextRun);
 
