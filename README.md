@@ -12,7 +12,7 @@ El agente nunca consulta Google Places en runtime.
 El agente consulta JSON generado desde Upstash e índices.
 ```
 
-El objetivo es tener un motor comparativo capaz de responder preguntas de reputación por ubicación, marca, operador, rol de tienda, rating, volumen de reseñas, brechas competitivas y evidencia textual.
+El objetivo es tener un motor comparativo capaz de responder preguntas de reputación por ubicación, marca, operador, rol de tienda, rating, volumen de reseñas, brechas competitivas, evidencia textual y cambios temporales básicos por ubicación.
 
 ---
 
@@ -368,9 +368,9 @@ lib/gmb/queryExecutor.js
 El contrato normaliza y valida:
 
 ```txt
-scope: intra | extra
+scope: intra | extra | temporal
 dimension: location | brand | operator | store_role
-metric: rating | reviews_count | gap_vs_top | position
+metric: rating | reviews_count | gap_vs_top | position | delta_rating | delta_reviews_count | delta_gap_vs_top | delta_position
 ownership_group: own | competitor | all
 store_role: dealer | service | parts | all
 sort: asc | desc
@@ -408,7 +408,77 @@ El agente no debe recibir 727 registros crudos salvo caso excepcional.
 
 ---
 
-## 9. Endpoints actuales
+## 9. Comparación temporal — alcance actual
+
+La primera capa temporal compara cambios por ubicación entre dos fechas.
+
+Soporta bien preguntas como:
+
+```txt
+¿Qué ubicación empeoró más?
+¿Dónde aumentó más el gap vs líder?
+¿Dónde subió o bajó el rating?
+¿Dónde cambió más el volumen de reviews?
+¿Qué ubicación perdió posición?
+```
+
+No soporta todavía comparación temporal agregada por:
+
+```txt
+brand
+operator
+store_role
+```
+
+Aunque el contrato acepta esas dimensiones, `scope=temporal` hoy usa summaries por ubicación.
+
+Definición de posición:
+
+```txt
+delta_position = position_to - position_from
+```
+
+Interpretación:
+
+```txt
++2 = empeoró 2 posiciones
+-2 = mejoró 2 posiciones
+```
+
+Para buscar mejoras de posición:
+
+```txt
+sort="asc"
+```
+
+Para buscar empeoramientos de posición:
+
+```txt
+sort="desc"
+```
+
+Ejemplo:
+
+```json
+{
+  "scope": "temporal",
+  "metric": "delta_gap_vs_top",
+  "date_from": "2026-05-14",
+  "date_to": "2026-05-15",
+  "filters": {
+    "ownership_group": "own",
+    "store_role": "dealer"
+  },
+  "output": {
+    "max_rows": 10,
+    "sort": "desc"
+  }
+}
+```
+
+---
+
+## 10. Endpoints actuales
 
 ### Captura
 
@@ -447,7 +517,7 @@ GET /api/gmb/debug/classified-sample?limit=3
 
 ---
 
-## 10. Reglas de costo
+## 11. Reglas de costo
 
 Costo real:
 
@@ -467,7 +537,7 @@ Reviews reales se guardan una sola vez por review_hash global.
 
 ---
 
-## 11. Problemas detectados y correcciones
+## 12. Problemas detectados y correcciones
 
 ### Snapshot barato repetía gasto
 
@@ -528,23 +598,23 @@ GET /api/gmb/index/status valida consistencia antes de consultar
 
 ---
 
-## 12. Pendientes inmediatos
+## 13. Pendientes inmediatos
 
 1. Crear `client_config` para no pasar `own_values` manualmente.
-2. Crear endpoint de evidencia:
+2. Crear endpoint de evidencia dedicado si se necesita lectura directa:
 
 ```txt
 GET /api/evidence?place_id=...&date=2026-05-15&limit=5
 ```
 
-3. Integrar `include_evidence=true` en `POST /api/query/compare`.
-4. Compactar outputs para el agente cuando no necesite `place_id`.
-5. Separar endpoints legacy de los nuevos endpoints de query.
-6. Documentar ejemplos de queries naturales → `compare_query`.
+3. Compactar outputs para el agente cuando no necesite `place_id`.
+4. Separar endpoints legacy de los nuevos endpoints de query.
+5. Comparación temporal agregada por brand/operator/store_role.
+6. Diferencia de reviews entre fechas usando `review_seen:{date}`.
 
 ---
 
-## 13. Principio rector
+## 14. Principio rector
 
 La mejor solución es la más simple.
 
