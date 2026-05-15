@@ -28,8 +28,9 @@ function buildNextRun(previousRun, result, limit) {
   return {
     captured_date: result.captured_date,
     total: result.total,
+    existing: result.existing,
+    missing: result.missing,
     limit,
-    next_offset: result.next_offset,
     saved: Number(previousRun?.saved || 0) + result.saved,
     reviews_saved: Number(previousRun?.reviews_saved || 0) + result.reviews_saved,
     failed: Number(previousRun?.failed || 0) + result.failed,
@@ -51,13 +52,7 @@ export default async function handler(req, res) {
     const date = today();
     const limit = parseNumber(req.query.limit, 10);
     const run = await readRun(date);
-
-    if (run?.done) {
-      return res.status(200).json({ ok: true, skipped: true, run });
-    }
-
-    const offset = Number(run?.next_offset || 0);
-    const result = await capturePlacesReviews({ limit, offset });
+    const result = await capturePlacesReviews({ limit, offset: 0 });
     const nextRun = buildNextRun(run, result, limit);
 
     await saveRun(date, nextRun);
