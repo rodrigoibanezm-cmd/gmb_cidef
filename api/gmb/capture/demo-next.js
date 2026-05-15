@@ -1,5 +1,6 @@
 import { capturePlacesDemo } from "../../../lib/gmb/capturePlacesDemo.js";
 import { gmbCaptureKeys } from "../../../lib/gmb/keys.js";
+import { redisCommand } from "../../../lib/gmb/redis.js";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -8,24 +9,6 @@ function today() {
 function parseNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-async function redisCommand(command) {
-  const response = await fetch(process.env.KV_REST_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(command),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Upstash error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.result;
 }
 
 async function readRun(date) {
@@ -41,8 +24,9 @@ function buildNextRun(previousRun, result, limit) {
   return {
     captured_date: result.captured_date,
     total: result.total,
+    existing: result.existing,
+    missing: result.missing,
     limit,
-    next_offset: result.next_offset,
     saved: Number(previousRun?.saved || 0) + result.saved,
     failed: Number(previousRun?.failed || 0) + result.failed,
     done: result.done,
@@ -64,8 +48,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, skipped: true, run });
     }
 
-    const offset = Number(run?.next_offset || 0);
-    const result = await capturePlacesDemo({ limit, offset });
+    const result = await capturePlacesDemo({ limit, offset: 0 });
     const nextRun = buildNextRun(run, result, limit);
 
     await saveRun(date, nextRun);
