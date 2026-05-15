@@ -57,23 +57,6 @@ Formato:
 HSET gmb:classified:v1 {place_id} {json}
 ```
 
-Ejemplo:
-
-```json
-{
-  "place_id": "...",
-  "name": "DFSK - Servimaq",
-  "address": "...",
-  "brand": "dfsk",
-  "normalized_location": "puerto_montt",
-  "operator": "servimaq",
-  "ownership_group": "cidef",
-  "store_role": "dealer",
-  "status": "keep",
-  "confidence": 0.95
-}
-```
-
 Dato validado:
 
 ```txt
@@ -128,15 +111,96 @@ Regla operativa actual:
 
 ```txt
 reviews requiere confirm=true.
-reviews-next calcula faltantes reales.
-No vuelve a llamar Google si ya existe snapshot del día y review_keys por place.
+reviews-next calcula faltantes reales desde el índice diario.
+No vuelve a llamar Google si ya existe review_keys por place para esa fecha.
 reviews = corrida puntual para demo/análisis.
 no cron diario.
 ```
 
 ---
 
-## 5. Flujo operativo seguro
+## 5. Modelo de keys: light vs caro
+
+### Snapshot light diario
+
+El snapshot diario de rating/review_count sigue siendo fechado:
+
+```txt
+gmb:snapshot:{date}:{place_id}
+```
+
+Ejemplo:
+
+```txt
+gmb:snapshot:2026-05-15:ChIJ...
+```
+
+Esto representa el estado observado ese día.
+
+### Review única global
+
+Las reviews ya no deben duplicarse por fecha.
+
+La review única se guarda con key estable:
+
+```txt
+gmb:review:{place_id}:{review_hash}
+```
+
+`review_hash` se calcula con:
+
+```txt
+place_id + author + rating + publishTime
+```
+
+Esto actúa como ID lógico estable de la review.
+
+### Marca de vista por fecha
+
+Para saber que una review fue vista en una captura determinada:
+
+```txt
+gmb:review_seen:{date}:{place_id}:{review_hash}
+```
+
+Esto separa:
+
+```txt
+la review real única
+```
+
+de:
+
+```txt
+la observación diaria de esa review
+```
+
+### Índice diario para lectura del agente
+
+El agente y endpoints LLM no deben buscar reviews escaneando keys.
+
+Deben leer:
+
+```txt
+gmb:index:{date}:place:{place_id}:review_keys
+```
+
+Ese índice diario apunta a las keys globales:
+
+```txt
+gmb:review:{place_id}:{review_hash}
+```
+
+Regla:
+
+```txt
+El LLM/backend consulta índices por fecha.
+Las reviews reales viven en keys globales únicas.
+```
+
+---
+
+## 6. Flujo operativo seguro
 
 ### Snapshot barato diario
 
@@ -192,10 +256,10 @@ $base = "https://gmb-cidef.vercel.app"
 $done = $false
 
 while (-not $done) {
-  $r = Invoke-RestMethod "$base/api/gmb/capture/reviews-next?limit=10&confirm=true" -Method POST
+  $r = Invoke-RestMethod "$base/api/gmb/capture/reviews-next?limit=3&confirm=true" -Method POST
   $result = $r.result
 
-  Write-Host "existing=$($result.existing) missing=$($result.missing) processed=$($result.processed) saved=$($result.saved) reviews_saved=$($result.reviews_saved) failed=$($result.failed) done=$($result.done)"
+  Write-Host "existing=$($result.existing) checked=$($result.checked) processed=$($result.processed) saved=$($result.saved) reviews_saved=$($result.reviews_saved) failed=$($result.failed) done=$($result.done)"
 
   $done = $result.done
 
@@ -223,50 +287,6 @@ Resultado esperado si hay reviews:
 reviews_updated=true
 missing_review_keys_in_global_index_count=0
 missing_place_review_index_count=0
-```
-
----
-
-## 6. Keys principales en Upstash
-
-### Fuente clasificada
-
-```txt
-gmb:classified:v1
-```
-
-### Snapshots
-
-```txt
-gmb:snapshot:{date}:{place_id}
-```
-
-### Reviews
-
-```txt
-gmb:review:{date}:{place_id}:{review_hash}
-```
-
-Hash estable:
-
-```txt
-place_id + author + rating + publishTime
-```
-
-No se usa el texto para hashear, porque Google puede traducir la review y cambiar el texto.
-
-### Estado de captura
-
-```txt
-gmb:capture:run:{date}
-gmb:capture:reviews:run:{date}
-```
-
-Importante:
-
-```txt
-Las keys run son auxiliares.
-El estado de verdad es la existencia real de snapshots/reviews en Redis.
 ```
 
 ---
@@ -378,13 +398,6 @@ Defaults:
 }
 ```
 
-Límites de salida:
-
-```txt
-max_rows default 50, hard max 200
-evidence_per_row default 3, hard max 10
-```
-
 Importante:
 
 ```txt
@@ -395,159 +408,7 @@ El agente no debe recibir 727 registros crudos salvo caso excepcional.
 
 ---
 
-## 9. Agnosticismo del motor
-
-El motor no debe hardcodear CIDEF.
-
-`own` se define por query/configuración:
-
-```json
-{
-  "filters": {
-    "ownership_group": "own",
-    "own_values": ["cidef"],
-    "store_role": "dealer",
-    "valid_only": true
-  }
-}
-```
-
-Para otro cliente:
-
-```json
-{
-  "filters": {
-    "ownership_group": "own",
-    "own_values": ["cliente_x"],
-    "store_role": "dealer",
-    "valid_only": true
-  }
-}
-```
-
-Regla:
-
-```txt
-CIDEF es configuración, no lógica del motor.
-```
-
-Pendiente futuro:
-
-```txt
-client_config
-```
-
-Ejemplo conceptual:
-
-```json
-{
-  "client_id": "cidef",
-  "own_values": ["cidef"]
-}
-```
-
----
-
-## 10. Scope `extra`
-
-Compara cliente vs mercado/competencia.
-
-Ejemplo: mayores brechas válidas contra el líder local.
-
-```json
-{
-  "date": "2026-05-15",
-  "scope": "extra",
-  "dimension": "location",
-  "metric": "gap_vs_top",
-  "filters": {
-    "ownership_group": "all",
-    "own_values": ["cidef"],
-    "store_role": "dealer",
-    "valid_only": true
-  },
-  "output": {
-    "max_rows": 10,
-    "sort": "desc"
-  }
-}
-```
-
-Respuesta esperada:
-
-```txt
-ubicaciones con gap_vs_top ordenadas
-solo con señales válidas si valid_only=true
-```
-
-`valid_only=true` significa:
-
-```txt
-solo señales con confidence media o alta
-```
-
----
-
-## 11. Scope `intra`
-
-Compara dentro del universo propio definido por `own_values`.
-
-Ejemplo: peores ubicaciones propias válidas por rating.
-
-```json
-{
-  "date": "2026-05-15",
-  "scope": "intra",
-  "dimension": "location",
-  "metric": "rating",
-  "filters": {
-    "ownership_group": "own",
-    "own_values": ["cidef"],
-    "store_role": "dealer",
-    "valid_only": true
-  },
-  "output": {
-    "max_rows": 20,
-    "sort": "asc"
-  }
-}
-```
-
----
-
-## 12. Preguntas que debe responder el agente
-
-### Comparación externa
-
-```txt
-¿Dónde mi red pierde más contra el líder local?
-¿Dónde lidero?
-¿En qué ubicaciones tengo gap bajo pero volumen alto?
-¿Qué competidor lidera en cada zona?
-¿Qué ubicaciones tienen competencia fuerte y presencia propia débil?
-```
-
-### Comparación interna
-
-```txt
-¿Cuáles son mis peores ubicaciones propias?
-¿Qué operador propio rinde peor?
-¿Qué marca propia tiene peor reputación?
-¿Venta, servicio o repuestos están peor evaluados?
-¿Qué locales propios tienen señal válida suficiente para intervenir?
-```
-
-### Evidencia textual
-
-```txt
-¿Qué dicen las reviews malas?
-Dame 3 evidencias reales.
-¿Qué temas aparecen: atención, espera, servicio técnico, repuestos?
-```
-
----
-
-## 13. Endpoints actuales
+## 9. Endpoints actuales
 
 ### Captura
 
@@ -586,36 +447,12 @@ GET /api/gmb/debug/classified-sample?limit=3
 
 ---
 
-## 14. Variables de entorno
-
-En Vercel:
-
-```txt
-KV_REST_API_URL
-KV_REST_API_TOKEN
-GOOGLE_MAPS_API_KEY
-```
-
-La API key de Google debe tener habilitada:
-
-```txt
-Places API (New)
-```
-
----
-
-## 15. Reglas de costo
+## 10. Reglas de costo
 
 Costo real:
 
 ```txt
 llamadas a Google Places
-```
-
-Costo marginal bajo:
-
-```txt
-lectura de Upstash / índices
 ```
 
 Regla:
@@ -625,82 +462,12 @@ Google solo en captura.
 Runtime solo contra Upstash.
 Snapshot barato no repite places ya capturados en la fecha.
 Snapshot con reviews requiere confirm=true y no debe usarse como cron diario.
+Reviews reales se guardan una sola vez por review_hash global.
 ```
 
 ---
 
-## 16. Problemas detectados y correcciones
-
-### compare-all lento
-
-Causa:
-
-```txt
-reconstruía rankings y leía demasiado en runtime
-```
-
-Corrección:
-
-```txt
-índices por ubicación y rol
-```
-
-### Duplicación de reviews inglés/español
-
-Causa:
-
-```txt
-hash incluía texto traducido
-```
-
-Corrección:
-
-```txt
-hash = place_id + author + rating + publishTime
-```
-
-### Agrupación vacía
-
-Causa:
-
-```txt
-se buscaba mall, pero la clasificación usa normalized_location
-```
-
-Corrección:
-
-```txt
-normalized_location como agrupador principal
-```
-
-### Señales débiles confundidas con urgencias
-
-Causa:
-
-```txt
-ratings con muy pocas reviews inflaban gaps
-```
-
-Corrección:
-
-```txt
-valid_only=true por defecto
-confidence media/alta para análisis globales
-```
-
-### Motor no agnóstico
-
-Causa:
-
-```txt
-cidef hardcodeado como own
-```
-
-Corrección:
-
-```txt
-own_values viene en la query
-```
+## 11. Problemas detectados y correcciones
 
 ### Snapshot barato repetía gasto
 
@@ -730,6 +497,21 @@ Corrección:
 el estado de verdad son snapshots/reviews existentes, no run.done
 ```
 
+### Reviews duplicadas por fecha
+
+Causa:
+
+```txt
+la review se guardaba como gmb:review:{date}:{place_id}:{review_hash}
+```
+
+Corrección:
+
+```txt
+la review única se guarda como gmb:review:{place_id}:{review_hash}
+y la observación diaria como gmb:review_seen:{date}:{place_id}:{review_hash}
+```
+
 ### Índice desactualizado durante captura
 
 Causa:
@@ -746,7 +528,7 @@ GET /api/gmb/index/status valida consistencia antes de consultar
 
 ---
 
-## 17. Pendientes inmediatos
+## 12. Pendientes inmediatos
 
 1. Crear `client_config` para no pasar `own_values` manualmente.
 2. Crear endpoint de evidencia:
@@ -762,7 +544,7 @@ GET /api/evidence?place_id=...&date=2026-05-15&limit=5
 
 ---
 
-## 18. Principio rector
+## 13. Principio rector
 
 La mejor solución es la más simple.
 
