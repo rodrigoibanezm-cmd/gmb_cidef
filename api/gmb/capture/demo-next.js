@@ -1,4 +1,5 @@
 import { capturePlacesDemo } from "../../../lib/gmb/capturePlacesDemo.js";
+import { buildGmbIndexes } from "../../../lib/gmb/indexBuilder.js";
 import { gmbCaptureKeys } from "../../../lib/gmb/keys.js";
 import { redisCommand } from "../../../lib/gmb/redis.js";
 
@@ -45,15 +46,17 @@ export default async function handler(req, res) {
     const run = await readRun(date);
 
     if (run?.done) {
-      return res.status(200).json({ ok: true, skipped: true, run });
+      const index = await buildGmbIndexes({ date });
+      return res.status(200).json({ ok: true, skipped: true, run, index });
     }
 
     const result = await capturePlacesDemo({ limit, offset: 0 });
     const nextRun = buildNextRun(run, result, limit);
+    const index = await buildGmbIndexes({ date });
 
     await saveRun(date, nextRun);
 
-    return res.status(200).json({ ok: true, result, run: nextRun });
+    return res.status(200).json({ ok: true, result, run: nextRun, index });
   } catch (error) {
     console.error("capture demo-next failed", error);
     return res.status(500).json({ ok: false, error: "capture_demo_next_failed" });
