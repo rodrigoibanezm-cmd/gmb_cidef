@@ -32,8 +32,15 @@ function snapshotPlaceId(date, key) {
   return key.replace(`gmb:snapshot:${date}:`, "");
 }
 
-function reviewPlaceId(date, key) {
-  return key.replace(`gmb:review:${date}:`, "").split(":")[0];
+function reviewSeenParts(date, key) {
+  const raw = key.replace(`gmb:review_seen:${date}:`, "");
+  const [placeId, reviewHash] = raw.split(":");
+  return { placeId, reviewHash };
+}
+
+function reviewKeyFromSeen(date, key) {
+  const { placeId, reviewHash } = reviewSeenParts(date, key);
+  return `gmb:review:${placeId}:${reviewHash}`;
 }
 
 function unique(values) {
@@ -43,14 +50,18 @@ function unique(values) {
 export default async function handler(req, res) {
   try {
     const date = req.query.date || today();
+
     const snapshotKeys = await scanKeys(`gmb:snapshot:${date}:*`);
-    const reviewKeys = await scanKeys(`gmb:review:${date}:*`);
+    const reviewSeenKeys = await scanKeys(`gmb:review_seen:${date}:*`);
+    const reviewKeys = reviewSeenKeys.map((key) => reviewKeyFromSeen(date, key));
+
     const indexedPlaceIds = safeJson(await redisCommand(["GET", `gmb:index:${date}:place_ids`])) || [];
     const indexedReviewKeys = safeJson(await redisCommand(["GET", `gmb:index:${date}:review_keys`])) || [];
     const locations = safeJson(await redisCommand(["GET", `gmb:index:${date}:locations`])) || [];
 
     const snapshotPlaceIds = snapshotKeys.map((key) => snapshotPlaceId(date, key));
-    const reviewedPlaceIds = unique(reviewKeys.map((key) => reviewPlaceId(date, key)));
+    const reviewedPlaceIds = unique(reviewSeenKeys.map((key) => reviewSeenParts(date, key).placeId));
+
     const indexedSet = new Set(indexedPlaceIds);
     const indexedReviewSet = new Set(indexedReviewKeys);
 
@@ -58,12 +69,17 @@ export default async function handler(req, res) {
     const missing_review_keys_in_global_index = reviewKeys.filter((key) => !indexedReviewSet.has(key));
 
     const missing_place_review_index = [];
+
     for (const placeId of reviewedPlaceIds) {
       const perPlaceKeys = safeJson(await redisCommand(["GET", `gmb:index:${date}:place:${placeId}:review_keys`])) || [];
-      if (perPlaceKeys.length === 0) missing_place_review_index.push(placeId);
+
+      if (perPlaceKeys.length === 0) {
+        missing_place_review_index.push(placeId);
+      }
     }
 
     const snapshotsUpdated = missing_in_index.length === 0 && snapshotPlaceIds.length === indexedPlaceIds.length;
+
     const reviewsUpdated =
       missing_review_keys_in_global_index.length === 0 &&
       reviewKeys.length === indexedReviewKeys.length &&
@@ -79,6 +95,7 @@ export default async function handler(req, res) {
       indexed_places: indexedPlaceIds.length,
       reviews: reviewKeys.length,
       indexed_reviews: indexedReviewKeys.length,
+      review_seen: reviewSeenKeys.length,
       reviewed_places: reviewedPlaceIds.length,
       locations: locations.length,
       missing_in_index_count: missing_in_index.length,
