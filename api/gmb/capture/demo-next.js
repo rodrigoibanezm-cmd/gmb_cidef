@@ -44,12 +44,6 @@ export default async function handler(req, res) {
     const date = today();
     const limit = parseNumber(req.query.limit, 25);
     const run = await readRun(date);
-
-    if (run?.done) {
-      const index = await buildGmbIndexes({ date });
-      return res.status(200).json({ ok: true, skipped: true, run, index });
-    }
-
     const result = await capturePlacesDemo({ limit, offset: 0 });
     const nextRun = buildNextRun(run, result, limit);
     const index = await buildGmbIndexes({ date });
