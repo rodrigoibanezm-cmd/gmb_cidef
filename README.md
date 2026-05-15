@@ -97,11 +97,19 @@ Field mask:
 id,displayName,rating,userRatingCount,primaryType
 ```
 
+Regla operativa actual:
+
+```txt
+demo-next calcula los snapshots faltantes reales del día.
+No confía en offset ni en run.done.
+No vuelve a llamar Google si gmb:snapshot:{date}:{place_id} ya existe.
+```
+
 ### Captura con reviews
 
 ```txt
-POST /api/gmb/capture/reviews?limit=10&offset=0
-POST /api/gmb/capture/reviews-next?limit=10
+POST /api/gmb/capture/reviews?limit=10&offset=0&confirm=true
+POST /api/gmb/capture/reviews-next?limit=10&confirm=true
 ```
 
 Field mask:
@@ -116,16 +124,110 @@ Se fuerza español:
 languageCode=es
 ```
 
-Regla:
+Regla operativa actual:
 
 ```txt
-reviews = corrida puntual para demo/análisis
-no cron diario
+reviews requiere confirm=true.
+reviews-next calcula faltantes reales.
+No vuelve a llamar Google si ya existe snapshot del día y review_keys por place.
+reviews = corrida puntual para demo/análisis.
+no cron diario.
 ```
 
 ---
 
-## 5. Keys principales en Upstash
+## 5. Flujo operativo seguro
+
+### Snapshot barato diario
+
+Usar `demo-next`, no `demo`, para no depender de offsets manuales.
+
+```powershell
+$base = "https://gmb-cidef.vercel.app"
+$done = $false
+
+while (-not $done) {
+  $r = Invoke-RestMethod "$base/api/gmb/capture/demo-next?limit=25" -Method POST
+  $result = $r.result
+
+  Write-Host "existing=$($result.existing) missing=$($result.missing) processed=$($result.processed) saved=$($result.saved) failed=$($result.failed) done=$($result.done)"
+
+  $done = $result.done
+
+  if (-not $done) {
+    Start-Sleep -Seconds 5
+  }
+}
+```
+
+Al terminar, construir índice final:
+
+```powershell
+Invoke-RestMethod "$base/api/gmb/index/build?date=2026-05-15" -Method POST | ConvertTo-Json -Depth 8
+```
+
+Validar consistencia:
+
+```powershell
+Invoke-RestMethod "$base/api/gmb/index/status?date=2026-05-15" -Method GET | ConvertTo-Json -Depth 8
+```
+
+Resultado esperado:
+
+```txt
+snapshots_updated=true
+snapshots=727
+indexed_places=727
+updated=true
+```
+
+Durante la captura, `updated=false` puede ser normal, porque puede haber snapshots nuevos aún no indexados.
+
+### Snapshot caro con reviews
+
+Usar solo cuando se necesite evidencia textual.
+
+```powershell
+$base = "https://gmb-cidef.vercel.app"
+$done = $false
+
+while (-not $done) {
+  $r = Invoke-RestMethod "$base/api/gmb/capture/reviews-next?limit=10&confirm=true" -Method POST
+  $result = $r.result
+
+  Write-Host "existing=$($result.existing) missing=$($result.missing) processed=$($result.processed) saved=$($result.saved) reviews_saved=$($result.reviews_saved) failed=$($result.failed) done=$($result.done)"
+
+  $done = $result.done
+
+  if (-not $done) {
+    Start-Sleep -Seconds 10
+  }
+}
+```
+
+Después de reviews, reconstruir índice:
+
+```powershell
+Invoke-RestMethod "$base/api/gmb/index/build?date=2026-05-15" -Method POST | ConvertTo-Json -Depth 8
+```
+
+Validar:
+
+```powershell
+Invoke-RestMethod "$base/api/gmb/index/status?date=2026-05-15" -Method GET | ConvertTo-Json -Depth 8
+```
+
+Resultado esperado si hay reviews:
+
+```txt
+reviews_updated=true
+missing_review_keys_in_global_index_count=0
+missing_place_review_index_count=0
+```
+
+---
+
+## 6. Keys principales en Upstash
 
 ### Fuente clasificada
 
@@ -160,14 +262,35 @@ gmb:capture:run:{date}
 gmb:capture:reviews:run:{date}
 ```
 
+Importante:
+
+```txt
+Las keys run son auxiliares.
+El estado de verdad es la existencia real de snapshots/reviews en Redis.
+```
+
 ---
 
-## 6. Índices actuales
+## 7. Índices actuales
 
 Se construyen con:
 
 ```txt
-POST /api/gmb/index/build?date=2026-05-14
+POST /api/gmb/index/build?date=2026-05-15
+```
+
+Se validan con:
+
+```txt
+GET /api/gmb/index/status?date=2026-05-15
+```
+
+`status` valida:
+
+```txt
+snapshots vs place_ids indexados
+review_keys reales vs review_keys indexados globales
+review_keys por place vs índices por place
 ```
 
 Genera:
@@ -200,24 +323,9 @@ gmb:index:{date}:locations = dealer
 gmb:index:{date}:location:{location}:ranking = dealer
 ```
 
-Resultado validado reciente:
-
-```json
-{
-  "ok": true,
-  "date": "2026-05-14",
-  "snapshots": 632,
-  "places": 632,
-  "reviews": 1886,
-  "places_with_reviews": 425,
-  "locations": 58,
-  "ranked_locations": 58
-}
-```
-
 ---
 
-## 7. Motor `compare_query v1`
+## 8. Motor `compare_query v1`
 
 Endpoint principal:
 
@@ -287,7 +395,7 @@ El agente no debe recibir 727 registros crudos salvo caso excepcional.
 
 ---
 
-## 8. Agnosticismo del motor
+## 9. Agnosticismo del motor
 
 El motor no debe hardcodear CIDEF.
 
@@ -340,7 +448,7 @@ Ejemplo conceptual:
 
 ---
 
-## 9. Scope `extra`
+## 10. Scope `extra`
 
 Compara cliente vs mercado/competencia.
 
@@ -348,7 +456,7 @@ Ejemplo: mayores brechas válidas contra el líder local.
 
 ```json
 {
-  "date": "2026-05-14",
+  "date": "2026-05-15",
   "scope": "extra",
   "dimension": "location",
   "metric": "gap_vs_top",
@@ -380,7 +488,7 @@ solo señales con confidence media o alta
 
 ---
 
-## 10. Scope `intra`
+## 11. Scope `intra`
 
 Compara dentro del universo propio definido por `own_values`.
 
@@ -388,7 +496,7 @@ Ejemplo: peores ubicaciones propias válidas por rating.
 
 ```json
 {
-  "date": "2026-05-14",
+  "date": "2026-05-15",
   "scope": "intra",
   "dimension": "location",
   "metric": "rating",
@@ -405,24 +513,9 @@ Ejemplo: peores ubicaciones propias válidas por rating.
 }
 ```
 
-Validado:
-
-```txt
-row_count: 15
-```
-
-Lectura del resultado validado:
-
-```txt
-mall_plaza_egana aparece como peor ubicación propia válida
-rating 2.9
-reviews 10
-confidence media
-```
-
 ---
 
-## 11. Preguntas que debe responder el agente
+## 12. Preguntas que debe responder el agente
 
 ### Comparación externa
 
@@ -454,21 +547,22 @@ Dame 3 evidencias reales.
 
 ---
 
-## 12. Endpoints actuales
+## 13. Endpoints actuales
 
 ### Captura
 
 ```txt
 POST /api/gmb/capture/demo?limit=25&offset=0
 POST /api/gmb/capture/demo-next?limit=25
-POST /api/gmb/capture/reviews?limit=10&offset=0
-POST /api/gmb/capture/reviews-next?limit=10
+POST /api/gmb/capture/reviews?limit=10&offset=0&confirm=true
+POST /api/gmb/capture/reviews-next?limit=10&confirm=true
 ```
 
 ### Índices
 
 ```txt
-POST /api/gmb/index/build?date=2026-05-14
+POST /api/gmb/index/build?date=2026-05-15
+GET /api/gmb/index/status?date=2026-05-15
 ```
 
 ### Query engine
@@ -480,8 +574,8 @@ POST /api/query/compare
 ### Lectura legacy / compatibilidad
 
 ```txt
-GET /api/compare-all?date=2026-05-14
-GET /api/compare?mall=puerto_montt&date=2026-05-14
+GET /api/compare-all?date=2026-05-15
+GET /api/compare?mall=puerto_montt&date=2026-05-15
 ```
 
 ### Debug
@@ -492,7 +586,7 @@ GET /api/gmb/debug/classified-sample?limit=3
 
 ---
 
-## 13. Variables de entorno
+## 14. Variables de entorno
 
 En Vercel:
 
@@ -510,7 +604,7 @@ Places API (New)
 
 ---
 
-## 14. Reglas de costo
+## 15. Reglas de costo
 
 Costo real:
 
@@ -529,12 +623,13 @@ Regla:
 ```txt
 Google solo en captura.
 Runtime solo contra Upstash.
-Reviews no van a cron diario.
+Snapshot barato no repite places ya capturados en la fecha.
+Snapshot con reviews requiere confirm=true y no debe usarse como cron diario.
 ```
 
 ---
 
-## 15. Problemas detectados y correcciones
+## 16. Problemas detectados y correcciones
 
 ### compare-all lento
 
@@ -607,15 +702,57 @@ Corrección:
 own_values viene en la query
 ```
 
+### Snapshot barato repetía gasto
+
+Causa:
+
+```txt
+se avanzaba por offset y se hacía SET sobre snapshots existentes
+```
+
+Corrección:
+
+```txt
+demo-next calcula faltantes reales por fecha antes de llamar Google
+```
+
+### Estado run corrupto
+
+Causa:
+
+```txt
+run.done podía quedar inconsistente con snapshots reales
+```
+
+Corrección:
+
+```txt
+el estado de verdad son snapshots/reviews existentes, no run.done
+```
+
+### Índice desactualizado durante captura
+
+Causa:
+
+```txt
+captura y build de índice son fases separadas
+```
+
+Corrección:
+
+```txt
+GET /api/gmb/index/status valida consistencia antes de consultar
+```
+
 ---
 
-## 16. Pendientes inmediatos
+## 17. Pendientes inmediatos
 
 1. Crear `client_config` para no pasar `own_values` manualmente.
 2. Crear endpoint de evidencia:
 
 ```txt
-GET /api/evidence?place_id=...&date=2026-05-14&limit=5
+GET /api/evidence?place_id=...&date=2026-05-15&limit=5
 ```
 
 3. Integrar `include_evidence=true` en `POST /api/query/compare`.
@@ -625,16 +762,16 @@ GET /api/evidence?place_id=...&date=2026-05-14&limit=5
 
 ---
 
-## 17. Principio rector
+## 18. Principio rector
 
 La mejor solución es la más simple.
 
 Para esta etapa:
 
 ```txt
-capturar una vez
+capturar faltantes
 persistir en Upstash
-indexar por fecha/rol
+validar índice
 consultar con compare_query cerrado
 ```
 
