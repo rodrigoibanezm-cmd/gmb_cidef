@@ -2,13 +2,15 @@
 
 Motor de inteligencia reputacional basado en Google Places capturado históricamente.
 
+Este README es solo el mapa ejecutivo. La verdad técnica vive en `docs/`.
+
 ## Principio central
 
 ```txt
 Google solo en captura.
 Runtime solo contra Upstash.
 LLM hace semántica.
-Backend entrega datos, métricas, evidencia y forma.
+Backend entrega datos, métricas, evidencia y forma del JSON.
 ```
 
 ## Estado validado
@@ -50,7 +52,7 @@ shape="raw" -> debug/auditoría
 
 ```txt
 LLM = semántica in/out
-Backend = datos, contratos, cálculos, evidencia y forma
+Backend = datos, contratos, cálculos, evidencia y forma del JSON
 ```
 
 ## Documentación
