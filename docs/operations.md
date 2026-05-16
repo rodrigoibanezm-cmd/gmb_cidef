@@ -1,11 +1,26 @@
 # Operations
 
-## Captura barata diaria
+## Tipos de captura
 
-Usar:
+### 1. Backfill / completar faltantes
+
+Objetivo:
+
+```txt
+completar snapshots faltantes del día actual
+```
+
+Usa:
 
 ```txt
 POST /api/gmb/capture/demo-next
+```
+
+Regla:
+
+```txt
+demo-next completa faltantes del día.
+No es el job histórico definitivo.
 ```
 
 No usar offsets manuales.
@@ -28,6 +43,21 @@ while (-not $done) {
     Start-Sleep -Seconds 5
   }
 }
+```
+
+### 2. Captura histórica diaria
+
+Objetivo:
+
+```txt
+persistir estado diario histórico real
+```
+
+Regla:
+
+```txt
+el sistema sí debe guardar snapshots todos los días.
+lo que no debe repetirse es el mismo place dentro de la misma fecha.
 ```
 
 ## Build de índices
@@ -80,7 +110,11 @@ reviews no debe correr como cron diario.
 ```
 
 ```txt
-snapshot barato no debe repetir places ya capturados.
+snapshot histórico sí debe existir todos los días.
+```
+
+```txt
+no repetir el mismo place dentro de la misma fecha.
 ```
 
 ## Costo real
