@@ -12,7 +12,7 @@ El agente nunca consulta Google Places en runtime.
 El agente consulta JSON generado desde Upstash e índices.
 ```
 
-El objetivo es tener un motor comparativo capaz de responder preguntas de reputación por ubicación, marca, operador, rol de tienda, rating, volumen de reseñas, brechas competitivas, evidencia textual, prioridad de acción y cambios temporales básicos por ubicación.
+El objetivo es tener un motor comparativo capaz de responder preguntas de reputación por ubicación, marca, operador, rol de tienda, rating, volumen de reseñas, brechas competitivas, evidencia textual y cambios temporales básicos por ubicación.
 
 ---
 
@@ -41,16 +41,6 @@ Lugares con reviews visibles: 156.
 Índices consistentes: sí.
 ```
 
-El contrato limpio ya fue validado:
-
-```txt
-ownership_group="own"
-own_values default=["own"]
-include_evidence=true
-```
-
-La query ya devuelve filas y evidencia sin pasar `own_values` explícito.
-
 Router validado por PowerShell:
 
 ```txt
@@ -63,25 +53,23 @@ Intents validados:
 ranking: OK, devuelve ubicaciones propias.
 gap: OK, devuelve brecha vs líder y evidencia opcional.
 evidence: OK, devuelve evidencia sin exponer keys Redis.
-action: OK, devuelve prioridad, motivo y acción recomendada.
+action: OK, devuelve datos para que el LLM defina prioridad/acción.
+cause: OK, devuelve datos y evidencia para que el LLM interprete causa.
 temporal: implementado, pero requiere índices comparables entre fechas.
 ```
 
-Caso validado de action:
+Regla arquitectónica validada:
 
 ```txt
-mall_plaza_egana
-priority=alta
-rating=2.9
-gap_vs_top=2.1
-confidence=media
+LLM = semántica in/out.
+Backend = datos, rutas, contratos, cálculos, evidencia.
 ```
 
 ---
 
 ## 3. Principio de arquitectura
 
-El backend no debe “pensar” ni escribir respuestas ejecutivas.
+El backend no debe “pensar”, clasificar semánticamente ni escribir respuestas ejecutivas.
 
 El backend debe:
 
@@ -92,26 +80,37 @@ ejecutar contra datos persistidos/indexados
 devolver JSON controlado
 ```
 
-El agente debe:
+El LLM debe:
 
 ```txt
 entender la pregunta
-construir compare_query
-llamar al backend
-interpretar el JSON
-responder en lenguaje ejecutivo
+clasificar intención
+interpretar evidencia
+definir causa, prioridad y acción cuando corresponda
+redactar la salida ejecutiva
 ```
 
 No se usa SQL libre. Se usa un DSL cerrado tipo `compare_query`.
 
-Regla clave:
+Reglas clave:
 
 ```txt
 El LLM decide intención.
+El LLM decide semántica.
 El backend decide keys.
+El backend calcula métricas.
 ```
 
 El LLM nunca debe construir keys Redis.
+
+El backend nunca debe decidir:
+
+```txt
+causa
+prioridad
+action/recomendación ejecutiva
+sentimiento semántico
+```
 
 ---
 
@@ -228,14 +227,6 @@ El snapshot diario de rating/review_count sigue siendo fechado:
 gmb:snapshot:{date}:{place_id}
 ```
 
-Ejemplo:
-
-```txt
-gmb:snapshot:2026-05-15:ChIJ...
-```
-
-Esto representa el estado observado ese día.
-
 ### Review única global
 
 Las reviews no deben duplicarse por fecha.
@@ -252,26 +243,12 @@ gmb:review:{place_id}:{review_hash}
 place_id + author + rating + publishTime
 ```
 
-Esto actúa como ID lógico estable de la review.
-
 ### Marca de vista por fecha
 
 Para saber que una review fue vista en una captura determinada:
 
 ```txt
 gmb:review_seen:{date}:{place_id}:{review_hash}
-```
-
-Esto separa:
-
-```txt
-la review real única
-```
-
-de:
-
-```txt
-la observación diaria de esa review
 ```
 
 ### Índice diario para lectura del agente
@@ -336,17 +313,6 @@ Validar consistencia:
 Invoke-RestMethod "$base/api/gmb/index/status?date=2026-05-15" -Method GET | ConvertTo-Json -Depth 8
 ```
 
-Resultado esperado:
-
-```txt
-snapshots_updated=true
-snapshots=727
-indexed_places=727
-updated=true
-```
-
-Durante la captura, `updated=false` puede ser normal, porque puede haber snapshots nuevos aún no indexados.
-
 ### Snapshot caro con reviews
 
 Usar solo cuando se necesite evidencia textual.
@@ -375,20 +341,6 @@ Después de reviews, reconstruir índice:
 Invoke-RestMethod "$base/api/gmb/index/build?date=2026-05-15" -Method POST | ConvertTo-Json -Depth 8
 ```
 
-Validar:
-
-```powershell
-Invoke-RestMethod "$base/api/gmb/index/status?date=2026-05-15" -Method GET | ConvertTo-Json -Depth 8
-```
-
-Resultado esperado si hay reviews:
-
-```txt
-reviews_updated=true
-missing_review_keys_in_global_index_count=0
-missing_place_review_index_count=0
-```
-
 ---
 
 ## 8. Índices actuales
@@ -409,14 +361,6 @@ Se validan con:
 
 ```txt
 GET /api/gmb/index/status?date=2026-05-15
-```
-
-`status` valida:
-
-```txt
-snapshots vs place_ids indexados
-review_keys reales vs review_keys indexados globales
-review_keys por place vs índices por place
 ```
 
 Genera:
@@ -483,12 +427,6 @@ Archivo ejecutor:
 lib/gmb/queryExecutor.js
 ```
 
-Motor de acción:
-
-```txt
-lib/gmb/actionPolicy.js
-```
-
 El contrato normaliza y valida:
 
 ```txt
@@ -498,36 +436,6 @@ metric: rating | reviews_count | gap_vs_top | position | delta_rating | delta_re
 ownership_group: own | competitor | all
 store_role: dealer | service | parts | all
 sort: asc | desc
-```
-
-Defaults:
-
-```json
-{
-  "scope": "extra",
-  "dimension": "location",
-  "metric": "gap_vs_top",
-  "filters": {
-    "ownership_group": "all",
-    "own_values": ["own"],
-    "store_role": "dealer",
-    "valid_only": true
-  },
-  "output": {
-    "max_rows": 50,
-    "include_evidence": false,
-    "evidence_per_row": 3,
-    "sort": "desc"
-  }
-}
-```
-
-Importante:
-
-```txt
-limit/max_rows controla salida, no profundidad de análisis.
-El backend puede leer todo el universo indexado.
-El agente no debe recibir 727 registros crudos salvo caso excepcional.
 ```
 
 ### Agent router
@@ -566,6 +474,7 @@ gap
 temporal
 evidence
 action
+cause
 ```
 
 Reglas del router:
@@ -575,8 +484,12 @@ ranking -> compare_query con default ownership_group="own"
 gap -> compare_query con default metric="gap_vs_top"
 temporal -> compare_query con scope="temporal"
 evidence -> compare_query con include_evidence=true
-action -> compare_query + actionPolicy
+action -> compare_query con semantic_required=true
+cause -> compare_query con include_evidence=true y semantic_required=true
 ```
+
+`action` y `cause` no deciden nada en backend.
+Solo entregan datos suficientes para que el LLM interprete.
 
 `POST /api/query/compare` queda como endpoint técnico/debug.
 
@@ -606,79 +519,80 @@ El output de evidencia no expone keys Redis.
 
 ---
 
-## 10. Motor `actionPolicy v1`
+## 10. Intents semánticos: `action` y `cause`
 
-El motor de acción deriva prioridad y recomendación desde resultados de `gap_vs_top`.
+Estos intents son rutas de datos, no motores de decisión.
 
-Endpoint:
+### `action`
 
-```txt
-POST /api/agent/router
-```
-
-Intent:
+Uso:
 
 ```txt
-action
+Preguntas como: ¿qué hago?, ¿qué ubicación priorizo?, ¿dónde hay riesgo?
 ```
 
-Payload de prueba:
-
-```json
-{
-  "intent": "action",
-  "params": {
-    "date": "2026-05-15",
-    "output": {
-      "max_rows": 5
-    }
-  }
-}
-```
-
-Flujo:
+Backend devuelve:
 
 ```txt
-intent=action
--> compare_query scope=extra metric=gap_vs_top ownership_group=own
--> actionPolicy
--> recommended + actions[]
+ubicaciones ordenadas por gap_vs_top
+rating propio
+reviews propias
+confidence
+posición
+top competidor
+evidencia opcional
 ```
 
-Reglas v1:
+LLM decide:
 
 ```txt
-confidence=baja -> prioridad baja + pedir más reviews
-gap_vs_top >= 1.5 -> prioridad alta
-rating < 3 -> prioridad alta
-gap_vs_top >= 1.0 -> prioridad media
-resto -> prioridad baja
+prioridad
+motivo
+acción recomendada
+lenguaje ejecutivo
 ```
 
-Output:
+### `cause`
+
+Uso:
 
 ```txt
-recommended: ubicación prioritaria
-actions[]: lista ordenada por score de riesgo
-priority: alta | media | baja
-reason: motivo
-action: acción recomendada
-metrics: rating, reviews, confidence, gap_vs_top, position
+Preguntas como: ¿por qué estoy mal?, ¿qué dicen las reviews?, ¿cuál parece el problema?
 ```
 
-Estado validado:
+Backend devuelve:
 
 ```txt
-mall_plaza_egana fue recomendado como prioridad alta.
-Motivo: rating 2.9 y gap_vs_top 2.1 contra líder local.
+ubicaciones relevantes
+gap/rating/confidence
+evidencia textual
+reviews asociadas
 ```
 
-Limitación actual:
+LLM decide:
 
 ```txt
-El output aún incluye row completo para trazabilidad.
-Más adelante se debe compactar para el agente.
+causa probable
+patrones semánticos
+síntesis
+riesgo narrativo
 ```
+
+Validado:
+
+```txt
+action y cause devuelven engine="compare_query" y semantic_required=true.
+No devuelven priority, reason, action, top_issue, issue_type ni topic_counts.
+```
+
+Archivos obsoletos/no usados:
+
+```txt
+lib/gmb/actionPolicy.js
+lib/gmb/causeSignals.js
+```
+
+Se pueden eliminar más adelante si no se reutilizan.
 
 ---
 
@@ -724,37 +638,6 @@ Interpretación:
 ```txt
 +2 = empeoró 2 posiciones
 -2 = mejoró 2 posiciones
-```
-
-Para buscar mejoras de posición:
-
-```txt
-sort="asc"
-```
-
-Para buscar empeoramientos de posición:
-
-```txt
-sort="desc"
-```
-
-Ejemplo:
-
-```json
-{
-  "scope": "temporal",
-  "metric": "delta_gap_vs_top",
-  "date_from": "2026-05-14",
-  "date_to": "2026-05-15",
-  "filters": {
-    "ownership_group": "own",
-    "store_role": "dealer"
-  },
-  "output": {
-    "max_rows": 10,
-    "sort": "desc"
-  }
-}
 ```
 
 ---
@@ -827,78 +710,6 @@ Reviews reales se guardan una sola vez por review_hash global.
 
 ## 14. Problemas detectados y correcciones
 
-### Snapshot barato repetía gasto
-
-Causa:
-
-```txt
-se avanzaba por offset y se hacía SET sobre snapshots existentes
-```
-
-Corrección:
-
-```txt
-demo-next calcula faltantes reales por fecha antes de llamar Google
-```
-
-### Estado run corrupto
-
-Causa:
-
-```txt
-run.done podía quedar inconsistente con snapshots reales
-```
-
-Corrección:
-
-```txt
-el estado de verdad son snapshots/reviews existentes, no run.done
-```
-
-### Reviews duplicadas por fecha
-
-Causa:
-
-```txt
-la review se guardaba como gmb:review:{date}:{place_id}:{review_hash}
-```
-
-Corrección:
-
-```txt
-la review única se guarda como gmb:review:{place_id}:{review_hash}
-y la observación diaria como gmb:review_seen:{date}:{place_id}:{review_hash}
-```
-
-### Índice desactualizado durante captura
-
-Causa:
-
-```txt
-captura y build de índice son fases separadas
-```
-
-Corrección:
-
-```txt
-GET /api/gmb/index/status valida consistencia antes de consultar
-```
-
-### Motor con ownership cliente-específico
-
-Causa:
-
-```txt
-el motor trataba cidef como own
-```
-
-Corrección:
-
-```txt
-ownership_group se normaliza a own | competitor
-locationIndexes usa solo ownership_group="own"
-```
-
 ### Agent router agregado
 
 Causa:
@@ -913,26 +724,27 @@ Corrección:
 POST /api/agent/router recibe intent + params y deriva a compare_query.
 ```
 
-### Action policy agregado
+### Frontera semántica corregida
 
 Causa:
 
 ```txt
-El agente necesitaba priorizar ubicaciones sin delegar la regla al LLM.
+Se intentó poner prioridad, acción y causa dentro del backend.
 ```
 
 Corrección:
 
 ```txt
-lib/gmb/actionPolicy.js deriva prioridad y acción desde gap/rating/confidence.
+action y cause quedaron como rutas de datos.
+semantic_required=true indica que el LLM debe interpretar.
 ```
 
 ---
 
 ## 15. Pendientes inmediatos
 
-1. Crear motor `causeSignals` para causa limitada sobre reviews.
-2. Compactar outputs para el agente cuando no necesite `place_id`.
+1. Compactar outputs para el agente cuando no necesite `place_id`.
+2. Eliminar o aislar archivos obsoletos `actionPolicy.js` y `causeSignals.js`.
 3. Separar endpoints legacy de los nuevos endpoints de query.
 4. Comparación temporal agregada por brand/operator/store_role.
 5. Diferencia de reviews entre fechas usando `review_seen:{date}`.
