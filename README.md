@@ -47,6 +47,21 @@ LLM = semántica in/out
 Backend = datos, contratos, cálculos, evidencia y forma del JSON
 ```
 
+## ROM Custom GPT
+
+```txt
+ROM/
+```
+
+La carpeta `ROM/` contiene los archivos que se suben al Custom GPT.
+
+Separación:
+
+```txt
+ROM/ = instrucciones operativas del GPT
+docs/ = documentación técnica del backend
+```
+
 ## Documentación
 
 - docs/architecture.md
@@ -54,3 +69,5 @@ Backend = datos, contratos, cálculos, evidencia y forma del JSON
 - docs/query-engine.md
 - docs/data-model.md
 - docs/operations.md
+- docs/pendientes.md
+- docs/deuda-tecnica.md
