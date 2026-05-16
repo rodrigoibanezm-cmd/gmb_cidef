@@ -64,6 +64,7 @@ Solo entregan datos suficientes para que el LLM interprete.
   "params": {
     "date": "2026-05-15",
     "filters": {
+      "location": "mall_plaza_egana",
       "ownership_group": "own",
       "store_role": "dealer"
     },
@@ -75,6 +76,29 @@ Solo entregan datos suficientes para que el LLM interprete.
     }
   }
 }
+```
+
+## filters.location
+
+Uso recomendado:
+
+```txt
+preguntas específicas por sucursal o mall
+```
+
+Ejemplos:
+
+```txt
+¿Por qué estoy mal en Plaza Egaña?
+¿Qué pasa en Costanera?
+Dame evidencia de La Serena.
+```
+
+Regla:
+
+```txt
+si el usuario pregunta por una ubicación específica,
+el LLM debe enviar filters.location.
 ```
 
 ## semantic_required
