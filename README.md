@@ -51,6 +51,21 @@ include_evidence=true
 
 La query ya devuelve filas y evidencia sin pasar `own_values` explícito.
 
+Router validado por PowerShell:
+
+```txt
+POST /api/agent/router
+```
+
+Intents validados:
+
+```txt
+ranking: OK, devuelve ubicaciones propias.
+gap: OK, devuelve brecha vs líder y evidencia opcional.
+evidence: OK, devuelve evidencia sin exponer keys Redis.
+temporal: implementado, pero requiere índices comparables entre fechas.
+```
+
 ---
 
 ## 3. Principio de arquitectura
@@ -122,11 +137,18 @@ Normalización disponible desde el endpoint de índice:
 POST /api/gmb/index/build?date=2026-05-15&normalize_ownership=true
 ```
 
-Regla:
+Regla actual de migración CIDEF:
 
 ```txt
 cidef -> own
 todo lo demás -> competitor
+```
+
+Nota:
+
+```txt
+Esta normalización es una migración operativa para la base actual.
+Para multi-tenant real, la regla debe salir de client_config, no quedar hardcodeada.
 ```
 
 ---
@@ -420,10 +442,22 @@ gmb:index:{date}:location:{location}:ranking = dealer
 
 ## 9. Motor `compare_query v1`
 
-Endpoint principal:
+Endpoint técnico:
 
 ```txt
 POST /api/query/compare
+```
+
+Entrada principal para el LLM:
+
+```txt
+POST /api/agent/router
+```
+
+Archivo router:
+
+```txt
+lib/gmb/agentRouter.js
 ```
 
 Archivo de contrato:
@@ -479,6 +513,54 @@ El backend puede leer todo el universo indexado.
 El agente no debe recibir 727 registros crudos salvo caso excepcional.
 ```
 
+### Agent router
+
+El LLM entra por:
+
+```txt
+POST /api/agent/router
+```
+
+Payload esperado:
+
+```json
+{
+  "intent": "gap",
+  "params": {
+    "date": "2026-05-15",
+    "filters": {
+      "ownership_group": "own",
+      "store_role": "dealer"
+    },
+    "output": {
+      "max_rows": 5,
+      "include_evidence": true,
+      "evidence_per_row": 2
+    }
+  }
+}
+```
+
+Intents actuales:
+
+```txt
+ranking
+gap
+temporal
+evidence
+```
+
+Reglas del router:
+
+```txt
+ranking -> compare_query con default ownership_group="own"
+gap -> compare_query con default metric="gap_vs_top"
+temporal -> compare_query con scope="temporal"
+evidence -> compare_query con include_evidence=true
+```
+
+`POST /api/query/compare` queda como endpoint técnico/debug.
+
 ### Evidencia
 
 Para evidencia, el LLM no pide keys.
@@ -500,6 +582,8 @@ El backend resuelve internamente:
 gmb:index:{date}:place:{place_id}:review_keys
 -> gmb:review:{place_id}:{review_hash}
 ```
+
+El output de evidencia no expone keys Redis.
 
 ---
 
@@ -526,6 +610,13 @@ store_role
 ```
 
 Aunque el contrato acepta esas dimensiones, `scope=temporal` hoy usa summaries por ubicación.
+
+Requisito operativo:
+
+```txt
+Temporal requiere índices comparables entre date_from y date_to.
+Si una fecha fue indexada antes de normalizar ownership o no tiene índice equivalente, puede devolver rows=[].
+```
 
 Definición de posición:
 
@@ -575,6 +666,12 @@ Ejemplo:
 
 ## 11. Endpoints actuales
 
+### Agent router
+
+```txt
+POST /api/agent/router
+```
+
 ### Captura
 
 ```txt
@@ -592,7 +689,7 @@ POST /api/gmb/index/build?date=2026-05-15&normalize_ownership=true
 GET /api/gmb/index/status?date=2026-05-15
 ```
 
-### Query engine
+### Query engine técnico
 
 ```txt
 POST /api/query/compare
@@ -707,15 +804,32 @@ ownership_group se normaliza a own | competitor
 locationIndexes usa solo ownership_group="own"
 ```
 
+### Agent router agregado
+
+Causa:
+
+```txt
+El LLM necesitaba una entrada única y no debía llamar motores internos directamente.
+```
+
+Corrección:
+
+```txt
+POST /api/agent/router recibe intent + params y deriva a compare_query.
+```
+
 ---
 
 ## 14. Pendientes inmediatos
 
-1. Compactar outputs para el agente cuando no necesite `place_id`.
-2. Separar endpoints legacy de los nuevos endpoints de query.
-3. Comparación temporal agregada por brand/operator/store_role.
-4. Diferencia de reviews entre fechas usando `review_seen:{date}`.
-5. Limpiar mezcla histórica de `source_key` viejo/nuevo en evidencia.
+1. Crear motor `actionPolicy` para prioridad/acción recomendada.
+2. Crear motor `causeSignals` para causa limitada sobre reviews.
+3. Compactar outputs para el agente cuando no necesite `place_id`.
+4. Separar endpoints legacy de los nuevos endpoints de query.
+5. Comparación temporal agregada por brand/operator/store_role.
+6. Diferencia de reviews entre fechas usando `review_seen:{date}`.
+7. Migrar normalización de ownership a `client_config`.
+8. Limpiar mezcla histórica de keys viejas/nuevas en evidencia.
 
 ---
 
