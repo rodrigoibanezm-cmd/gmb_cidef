@@ -6,6 +6,12 @@
 gmb:classified:v1
 ```
 
+Representa:
+
+```txt
+la base maestra curada de places.
+```
+
 Formato:
 
 ```txt
