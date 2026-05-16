@@ -16,7 +16,44 @@ El objetivo es tener un motor comparativo capaz de responder preguntas de reputa
 
 ---
 
-## 2. Principio de arquitectura
+## 2. Estado validado actual
+
+Validado al 2026-05-15:
+
+```txt
+snapshots: 727
+indexed_places: 727
+reviews: 717
+indexed_reviews: 717
+reviewed_places: 156
+locations: 61
+snapshots_updated: true
+reviews_updated: true
+updated: true
+```
+
+Interpretación:
+
+```txt
+Light completo: 727 lugares.
+Reviews disponibles: 717 reviews visibles.
+Lugares con reviews visibles: 156.
+Índices consistentes: sí.
+```
+
+El contrato limpio ya fue validado:
+
+```txt
+ownership_group="own"
+own_values default=["own"]
+include_evidence=true
+```
+
+La query ya devuelve filas y evidencia sin pasar `own_values` explícito.
+
+---
+
+## 3. Principio de arquitectura
 
 El backend no debe “pensar” ni escribir respuestas ejecutivas.
 
@@ -41,9 +78,18 @@ responder en lenguaje ejecutivo
 
 No se usa SQL libre. Se usa un DSL cerrado tipo `compare_query`.
 
+Regla clave:
+
+```txt
+El LLM decide intención.
+El backend decide keys.
+```
+
+El LLM nunca debe construir keys Redis.
+
 ---
 
-## 3. Estado actual
+## 4. Base clasificada
 
 Base clasificada en Upstash:
 
@@ -63,9 +109,29 @@ Dato validado:
 727 place_id en gmb:classified:v1
 ```
 
+Ownership normalizado:
+
+```txt
+own
+competitor
+```
+
+Normalización disponible desde el endpoint de índice:
+
+```txt
+POST /api/gmb/index/build?date=2026-05-15&normalize_ownership=true
+```
+
+Regla:
+
+```txt
+cidef -> own
+todo lo demás -> competitor
+```
+
 ---
 
-## 4. Captura histórica
+## 5. Captura histórica
 
 ### Captura demo barata, sin reviews
 
@@ -119,7 +185,7 @@ no cron diario.
 
 ---
 
-## 5. Modelo de keys: light vs caro
+## 6. Modelo de keys: light vs caro
 
 ### Snapshot light diario
 
@@ -139,7 +205,7 @@ Esto representa el estado observado ese día.
 
 ### Review única global
 
-Las reviews ya no deben duplicarse por fecha.
+Las reviews no deben duplicarse por fecha.
 
 La review única se guarda con key estable:
 
@@ -185,22 +251,23 @@ Deben leer:
 gmb:index:{date}:place:{place_id}:review_keys
 ```
 
-Ese índice diario apunta a las keys globales:
+Ese índice diario apunta idealmente a las keys globales:
 
 ```txt
 gmb:review:{place_id}:{review_hash}
 ```
 
-Regla:
+Nota operativa:
 
 ```txt
-El LLM/backend consulta índices por fecha.
-Las reviews reales viven en keys globales únicas.
+Puede existir mezcla histórica de source_key viejo y nuevo en evidencia.
+No rompe lectura porque el índice resuelve las keys disponibles.
+La dirección futura es mantener solo keys globales.
 ```
 
 ---
 
-## 6. Flujo operativo seguro
+## 7. Flujo operativo seguro
 
 ### Snapshot barato diario
 
@@ -291,12 +358,18 @@ missing_place_review_index_count=0
 
 ---
 
-## 7. Índices actuales
+## 8. Índices actuales
 
 Se construyen con:
 
 ```txt
 POST /api/gmb/index/build?date=2026-05-15
+```
+
+Opcionalmente normaliza ownership antes de indexar:
+
+```txt
+POST /api/gmb/index/build?date=2026-05-15&normalize_ownership=true
 ```
 
 Se validan con:
@@ -345,7 +418,7 @@ gmb:index:{date}:location:{location}:ranking = dealer
 
 ---
 
-## 8. Motor `compare_query v1`
+## 9. Motor `compare_query v1`
 
 Endpoint principal:
 
@@ -406,9 +479,31 @@ El backend puede leer todo el universo indexado.
 El agente no debe recibir 727 registros crudos salvo caso excepcional.
 ```
 
+### Evidencia
+
+Para evidencia, el LLM no pide keys.
+
+Debe pedir:
+
+```json
+{
+  "output": {
+    "include_evidence": true,
+    "evidence_per_row": 3
+  }
+}
+```
+
+El backend resuelve internamente:
+
+```txt
+gmb:index:{date}:place:{place_id}:review_keys
+-> gmb:review:{place_id}:{review_hash}
+```
+
 ---
 
-## 9. Comparación temporal — alcance actual
+## 10. Comparación temporal — alcance actual
 
 La primera capa temporal compara cambios por ubicación entre dos fechas.
 
@@ -478,7 +573,7 @@ Ejemplo:
 
 ---
 
-## 10. Endpoints actuales
+## 11. Endpoints actuales
 
 ### Captura
 
@@ -493,6 +588,7 @@ POST /api/gmb/capture/reviews-next?limit=10&confirm=true
 
 ```txt
 POST /api/gmb/index/build?date=2026-05-15
+POST /api/gmb/index/build?date=2026-05-15&normalize_ownership=true
 GET /api/gmb/index/status?date=2026-05-15
 ```
 
@@ -517,7 +613,7 @@ GET /api/gmb/debug/classified-sample?limit=3
 
 ---
 
-## 11. Reglas de costo
+## 12. Reglas de costo
 
 Costo real:
 
@@ -537,7 +633,7 @@ Reviews reales se guardan una sola vez por review_hash global.
 
 ---
 
-## 12. Problemas detectados y correcciones
+## 13. Problemas detectados y correcciones
 
 ### Snapshot barato repetía gasto
 
@@ -596,25 +692,34 @@ Corrección:
 GET /api/gmb/index/status valida consistencia antes de consultar
 ```
 
----
+### Motor con ownership cliente-específico
 
-## 13. Pendientes inmediatos
-
-1. Crear `client_config` para no pasar `own_values` manualmente.
-2. Crear endpoint de evidencia dedicado si se necesita lectura directa:
+Causa:
 
 ```txt
-GET /api/evidence?place_id=...&date=2026-05-15&limit=5
+el motor trataba cidef como own
 ```
 
-3. Compactar outputs para el agente cuando no necesite `place_id`.
-4. Separar endpoints legacy de los nuevos endpoints de query.
-5. Comparación temporal agregada por brand/operator/store_role.
-6. Diferencia de reviews entre fechas usando `review_seen:{date}`.
+Corrección:
+
+```txt
+ownership_group se normaliza a own | competitor
+locationIndexes usa solo ownership_group="own"
+```
 
 ---
 
-## 14. Principio rector
+## 14. Pendientes inmediatos
+
+1. Compactar outputs para el agente cuando no necesite `place_id`.
+2. Separar endpoints legacy de los nuevos endpoints de query.
+3. Comparación temporal agregada por brand/operator/store_role.
+4. Diferencia de reviews entre fechas usando `review_seen:{date}`.
+5. Limpiar mezcla histórica de `source_key` viejo/nuevo en evidencia.
+
+---
+
+## 15. Principio rector
 
 La mejor solución es la más simple.
 
