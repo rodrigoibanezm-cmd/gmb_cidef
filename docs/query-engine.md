@@ -6,12 +6,25 @@
 POST /api/query/compare
 ```
 
+Este endpoint devuelve salida raw.
+
+La forma `raw | compact` se aplica en:
+
+```txt
+POST /api/agent/router
+```
+
+mediante:
+
+```txt
+lib/gmb/responseShape.js
+```
+
 ## Archivos principales
 
 ```txt
 lib/gmb/queryContract.js
 lib/gmb/queryExecutor.js
-lib/gmb/responseShape.js
 ```
 
 ## Contrato
@@ -84,7 +97,6 @@ desc
     "valid_only": true
   },
   "output": {
-    "shape": "raw",
     "max_rows": 50,
     "include_evidence": false,
     "evidence_per_row": 3,
@@ -93,34 +105,12 @@ desc
 }
 ```
 
-## output.shape
+Nota:
 
 ```txt
-raw
-compact
+output.shape no pertenece al query engine técnico.
+output.shape pertenece al agent router.
 ```
-
-## compact
-
-Compact elimina ruido interno y deja:
-
-```txt
-location
-rating
-reviews
-confidence
-gap_vs_top
-position
-top_brand
-top_name
-top_rating
-top_reviews
-evidence
-```
-
-## raw
-
-Raw conserva toda la estructura original del motor.
 
 ## Evidencia
 
