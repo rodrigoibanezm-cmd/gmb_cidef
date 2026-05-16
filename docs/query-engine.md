@@ -59,21 +59,47 @@ delta_gap_vs_top
 delta_position
 ```
 
-### ownership_group
+### filters
 
 ```txt
-own
-competitor
-all
+ownership_group: own | competitor | all
+own_values: string[]
+store_role: dealer | service | parts | all
+valid_only: boolean
+location: string | null
 ```
 
-### store_role
+`filters.location` es opcional.
+
+Uso:
+
+```json
+{
+  "filters": {
+    "location": "mall_plaza_egana"
+  }
+}
+```
+
+Normalización:
 
 ```txt
-dealer
-service
-parts
-all
+trim
+lowercase
+espacios -> _
+```
+
+Efecto:
+
+```txt
+si filters.location existe, el backend lee solo esa ubicación.
+no recorre todas las ubicaciones.
+```
+
+Validado:
+
+```txt
+filters.location="mall_plaza_egana" devuelve row_count=1 para gap/cause.
 ```
 
 ### sort
@@ -94,7 +120,8 @@ desc
     "ownership_group": "all",
     "own_values": ["own"],
     "store_role": "dealer",
-    "valid_only": true
+    "valid_only": true,
+    "location": null
   },
   "output": {
     "max_rows": 50,
