@@ -1,0 +1,7 @@
+openapi: 3.1.0
+info:
+  title: GMB Agent Router
+  version: 1.0.0
+
+# Pendiente.
+# Este archivo definirá el Action schema del Custom GPT.
