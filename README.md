@@ -41,7 +41,7 @@ Lugares con reviews visibles: 156.
 Índices consistentes: sí.
 ```
 
-Router validado por PowerShell:
+Router validado por PowerShell después de eliminar motores semánticos del backend:
 
 ```txt
 POST /api/agent/router
@@ -56,6 +56,14 @@ evidence: OK, devuelve evidencia sin exponer keys Redis.
 action: OK, devuelve datos para que el LLM defina prioridad/acción.
 cause: OK, devuelve datos y evidencia para que el LLM interprete causa.
 temporal: implementado, pero requiere índices comparables entre fechas.
+```
+
+Validación post-borrado:
+
+```txt
+gap -> engine="compare_query", semantic_required=false
+action -> engine="compare_query", semantic_required=true
+cause -> engine="compare_query", semantic_required=true
 ```
 
 Regla arquitectónica validada:
@@ -585,14 +593,12 @@ action y cause devuelven engine="compare_query" y semantic_required=true.
 No devuelven priority, reason, action, top_issue, issue_type ni topic_counts.
 ```
 
-Archivos obsoletos/no usados:
+Archivos eliminados:
 
 ```txt
 lib/gmb/actionPolicy.js
 lib/gmb/causeSignals.js
 ```
-
-Se pueden eliminar más adelante si no se reutilizan.
 
 ---
 
@@ -744,12 +750,11 @@ semantic_required=true indica que el LLM debe interpretar.
 ## 15. Pendientes inmediatos
 
 1. Compactar outputs para el agente cuando no necesite `place_id`.
-2. Eliminar o aislar archivos obsoletos `actionPolicy.js` y `causeSignals.js`.
-3. Separar endpoints legacy de los nuevos endpoints de query.
-4. Comparación temporal agregada por brand/operator/store_role.
-5. Diferencia de reviews entre fechas usando `review_seen:{date}`.
-6. Migrar normalización de ownership a `client_config`.
-7. Limpiar mezcla histórica de keys viejas/nuevas en evidencia.
+2. Separar endpoints legacy de los nuevos endpoints de query.
+3. Comparación temporal agregada por brand/operator/store_role.
+4. Diferencia de reviews entre fechas usando `review_seen:{date}`.
+5. Migrar normalización de ownership a `client_config`.
+6. Limpiar mezcla histórica de keys viejas/nuevas en evidencia.
 
 ---
 
