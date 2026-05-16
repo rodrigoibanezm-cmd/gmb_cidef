@@ -4,453 +4,293 @@
 
 Definir el fondo de la respuesta del agente.
 
-Este archivo responde:
+Este archivo no es un reglamento largo. Es una guía de criterio.
 
 ```txt
-qué debe decir el agente
-cómo interpretar datos
-cómo decidir lectura, causa y acción
-```
-
-No define estilo visual ni formato narrativo. Eso vive en:
-
-```txt
-ROM/render.md
+Backend entrega datos.
+LLM interpreta.
+Render define la forma.
 ```
 
 ---
 
-## Principio central
+## Principio 1 — No mirar un dato solo
 
-El backend entrega datos.
-El LLM interpreta.
+Nunca decidir solo con rating, solo con gap o solo con reviews.
 
-El agente debe convertir:
-
-```txt
-rating
-gap_vs_top
-position
-confidence
-top_brand
-evidence
-```
-
-en:
+Cruzar siempre:
 
 ```txt
-lectura ejecutiva
-causa probable
-riesgo
-acción recomendada
+rating + reviews + confidence + gap_vs_top + evidence
 ```
 
----
+Ejemplo:
 
-## Campos principales
-
-### rating
-
-Rating propio de la ubicación.
+```txt
+rating 2.9 + gap 2.1 + confidence media
+```
 
 Lectura:
 
 ```txt
-rating < 3.0 -> señal crítica
-rating 3.0 a 3.9 -> señal débil/relevante
-rating >= 4.0 -> señal aceptable o buena
+señal fuerte de debilidad competitiva
 ```
 
-No mirar rating aislado. Cruzar siempre con:
+Ejemplo contrario:
 
 ```txt
-reviews
-confidence
-gap_vs_top
+rating bajo + confidence baja + pocas reviews
 ```
-
----
-
-### reviews
-
-Volumen de reviews propias.
 
 Lectura:
 
 ```txt
-reviews bajo -> baja confiabilidad
-reviews alto -> mayor peso reputacional
-```
-
-Si hay pocas reviews:
-
-```txt
-no declarar problema fuerte sin advertir muestra baja
+señal débil; pedir más reviews antes de concluir
 ```
 
 ---
 
-### confidence
+## Principio 2 — Gap explica brecha competitiva
 
-Confianza estadística del dato.
-
-Regla:
+`gap_vs_top` responde:
 
 ```txt
-confidence=baja -> no afirmar conclusiones fuertes
-confidence=media -> conclusión válida con cautela
-confidence=alta -> conclusión fuerte permitida
+qué tan lejos estoy del líder local
 ```
 
-Si confidence es baja, recomendar:
+Guía práctica:
 
 ```txt
-capturar más reviews
-pedir más evidencia
-monitorear antes de intervenir fuerte
+gap >= 1.5 -> brecha fuerte
+gap >= 1.0 -> brecha relevante
+gap < 1.0 -> brecha moderada o baja
+gap = 0 -> sin brecha contra líder
 ```
 
----
+Ejemplo:
 
-### gap_vs_top
-
-Diferencia entre rating del líder local y rating propio.
+```txt
+DFSK tiene rating 2.9 y el líder local Changan tiene 5.0.
+El gap es 2.1.
+```
 
 Lectura:
 
 ```txt
-gap_vs_top >= 1.5 -> brecha fuerte
-gap_vs_top >= 1.0 -> brecha relevante
-gap_vs_top < 1.0 -> brecha moderada o baja
-gap_vs_top = 0 -> no hay brecha contra líder
-```
-
-Usar gap para responder:
-
-```txt
-Dónde estoy peor
-Dónde estoy más lejos del líder
-Dónde hay mayor riesgo competitivo
+Plaza Egaña es una ubicación crítica frente al líder local.
 ```
 
 ---
 
-### position
+## Principio 3 — Confidence controla el tono
 
-Posición propia dentro de la ubicación.
-
-Lectura:
+La confianza define cuán fuerte puede ser la conclusión.
 
 ```txt
-position = 1 -> lidera localmente
-position 2 o 3 -> compite, pero no lidera
-position >= 4 -> rezago competitivo
+confidence alta -> conclusión firme
+confidence media -> conclusión válida, con cuidado
+confidence baja -> no afirmar problema fuerte
 ```
 
-No usar posición sin mirar gap.
-
----
-
-### top_brand / top_name
-
-Representa el líder local contra el que se compara.
-
-Usar para explicar:
+Ejemplo:
 
 ```txt
-contra quién se pierde
-a quién se debe mirar como referencia
-qué tan lejos está el líder
+confidence baja + pocas reviews
 ```
 
-No convertir al líder en causa del problema.
-
----
-
-## Tipos de respuesta por intención
-
-### ranking
-
-Usar cuando el usuario pide:
+Respuesta correcta:
 
 ```txt
-mejor ubicación
-peor ubicación
-ranking
-reputación más alta/baja
-```
-
-Criterio:
-
-```txt
-mejor -> mayor rating, cuidando confidence y reviews
-peor -> menor rating, cuidando confidence y reviews
-```
-
-Si el usuario pide una sola respuesta, elegir una ubicación.
-No listar todo salvo que el usuario pida ranking/listado.
-
----
-
-### gap
-
-Usar cuando el usuario pide:
-
-```txt
-brecha
-más lejos del líder
-más débil frente a competencia
-contra quién pierdo más
-```
-
-Criterio:
-
-```txt
-mayor gap_vs_top = peor brecha competitiva
-```
-
-Respuesta debe incluir:
-
-```txt
-ubicación
-gap_vs_top
-rating propio
-top_brand/top_name
-top_rating
+La señal existe, pero la muestra es baja. Antes de intervenir fuerte, conviene aumentar la base de reviews.
 ```
 
 ---
 
-### evidence
+## Principio 4 — Evidence permite interpretar causa
 
-Usar cuando el usuario pide:
+El backend no entrega causa.
+
+El LLM debe leer la evidencia y buscar patrones.
+
+Ejemplo de evidencia:
 
 ```txt
-evidencia
-reviews reales
-textos reales
-qué dicen las reseñas
+no responden a la solicitud
+se atrasó la entrega
+no dan fecha clara
+mala información
 ```
 
-Regla:
+Lectura posible:
 
 ```txt
-usar solo evidence entregada por backend
-no inventar testimonios
-no resumir como hecho algo que no aparece en reviews
+La evidencia apunta a problemas de promesa comercial, respuesta y seguimiento postventa.
 ```
 
-Si hay reviews positivas y negativas mezcladas:
+No decir:
 
 ```txt
-separar señales positivas y negativas
-no forzar conclusión única
+La causa es X
+```
+
+Mejor decir:
+
+```txt
+La evidencia apunta a...
+La señal más clara es...
+Parece haber un patrón de...
 ```
 
 ---
 
-### cause
-
-Usar cuando el usuario pide:
-
-```txt
-por qué
-causa
-problema principal
-patrón
-atención vs producto
-```
-
-Regla:
-
-```txt
-la causa la infiere el LLM desde evidence
-no viene decidida por backend
-```
-
-Criterio:
-
-```txt
-buscar patrones repetidos en reviews
-priorizar reviews negativas
-considerar rating, gap y confidence
-```
-
-Lenguaje recomendado:
-
-```txt
-la evidencia apunta a...
-la señal más clara es...
-parece haber un patrón de...
-```
-
-Evitar:
-
-```txt
-la causa es...
-está demostrado que...
-```
-
-salvo que la evidencia sea clara y repetida.
-
----
-
-### action
-
-Usar cuando el usuario pide:
-
-```txt
-qué hago
-qué priorizo
-qué tienda intervenir
-dónde hay riesgo
-qué hacer mañana
-```
+## Principio 5 — Acción nace de gravedad + evidencia
 
 El backend no decide acción.
-El LLM debe decidir usando:
+
+El LLM recomienda acción usando:
 
 ```txt
-gap_vs_top
+gap
 rating
 position
 confidence
 evidence
 ```
 
-Criterios prácticos:
+Guía práctica:
 
 ```txt
-rating < 3.0 -> prioridad alta
-gap_vs_top >= 1.5 -> prioridad alta
-gap_vs_top >= 1.0 -> prioridad media
-confidence=baja -> pedir más reviews antes de intervenir fuerte
-reviews negativas recientes -> elevar urgencia
+rating < 3 o gap >= 1.5 -> prioridad alta
+gap >= 1.0 -> prioridad media
+confidence baja -> pedir más reviews antes de concluir
 ```
 
-Acciones posibles:
+Ejemplo:
 
 ```txt
-intervenir experiencia de atención
-revisar promesa comercial y entrega
-pedir más reviews
-monitorear ubicación
-replicar buenas prácticas de ubicaciones fuertes
+rating 2.9, gap 2.1, posición 3, evidencia negativa sobre entrega y respuesta
 ```
 
-La acción debe ser una recomendación operacional, no una frase genérica.
+Acción correcta:
+
+```txt
+Intervenir la experiencia de atención y seguimiento comercial en esa ubicación.
+```
+
+No responder con acciones genéricas tipo:
+
+```txt
+mejorar el servicio
+monitorear la reputación
+```
+
+sin decir dónde ni por qué.
 
 ---
 
-### temporal
+## Principio 6 — Responder solo lo que la pregunta pide
 
-Usar cuando el usuario pide:
-
-```txt
-qué cambió
-qué empeoró
-qué mejoró
-qué pasó desde ayer
-```
-
-Criterios:
+Si pregunta:
 
 ```txt
-delta_gap_vs_top > 0 -> empeoró brecha
-delta_gap_vs_top < 0 -> mejoró brecha
-delta_rating < 0 -> bajó rating
-delta_rating > 0 -> subió rating
-delta_position > 0 -> perdió posiciones
-delta_position < 0 -> ganó posiciones
+¿Dónde estoy peor?
 ```
 
-Limitación:
+Responder una ubicación principal, no una lista larga.
+
+Si pregunta:
 
 ```txt
-temporal hoy funciona bien por ubicación.
-no usar para conclusiones temporales por marca u operador.
+Dame los 3 hallazgos principales
 ```
+
+Responder tres hallazgos.
+
+Si pregunta:
+
+```txt
+¿Por qué estoy mal en Plaza Egaña?
+```
+
+Usar esa ubicación y evidencia asociada.
 
 ---
 
-## Prioridad recomendada
+## Ejemplos de fondo
 
-El LLM puede usar esta guía:
+### Pregunta: ¿Dónde estoy más lejos del líder?
 
-### Alta
+Datos:
 
 ```txt
-rating < 3.0
-o gap_vs_top >= 1.5
-o evidencia negativa clara y repetida
+location: mall_plaza_egana
+rating: 2.9
+gap_vs_top: 2.1
+top_brand: changan
+top_rating: 5.0
+confidence: media
 ```
 
-### Media
+Lectura:
 
 ```txt
-gap_vs_top >= 1.0
-o position >= 3
-o evidencia negativa parcial
-```
-
-### Baja
-
-```txt
-gap bajo
-rating aceptable
-confidence baja sin evidencia suficiente
-```
-
-Restricción:
-
-```txt
-Si confidence=baja, no declarar problema reputacional fuerte.
+Plaza Egaña es la ubicación con mayor brecha competitiva: está 2.1 puntos bajo el líder local.
 ```
 
 ---
 
-## Reglas de evidencia
+### Pregunta: ¿Por qué estoy mal en Plaza Egaña?
 
-Usar evidence para:
+Datos:
 
 ```txt
-sostener causa
-sostener acción
-mostrar ejemplos reales
+rating: 2.9
+gap_vs_top: 2.1
+evidence: reviews negativas sobre regalos incumplidos, falta de respuesta, atrasos y mala información
 ```
 
-No usar evidence para:
+Lectura:
 
 ```txt
-inventar volumen total de quejas
-atribuir intención a clientes
-hacer afirmaciones legales
-```
-
-Cuando cites reviews:
-
-```txt
-usar fragmentos cortos
-no copiar bloques largos salvo que el usuario lo pida
+La evidencia apunta más a incumplimiento de promesa comercial y falta de seguimiento que a un problema genérico de producto.
 ```
 
 ---
 
-## Si faltan datos
+### Pregunta: ¿Qué hago mañana?
 
-Si no hay rows:
+Datos:
+
+```txt
+ubicación crítica: mall_plaza_egana
+rating: 2.9
+gap: 2.1
+evidencia negativa: respuesta, entrega, información
+```
+
+Lectura:
+
+```txt
+Priorizar Plaza Egaña y revisar el proceso de respuesta y seguimiento comercial.
+```
+
+---
+
+## Cuando faltan datos
+
+Si no hay filas:
 
 ```txt
 No tengo datos suficientes para responder esa ubicación o fecha.
 ```
 
-Si no hay evidence:
+Si hay métricas pero no evidencia:
 
 ```txt
-Tengo métricas, pero no evidencia textual suficiente para explicar causa.
+Tengo la brecha y el rating, pero no evidencia textual suficiente para explicar causa.
 ```
 
-Si confidence=baja:
+Si hay baja confianza:
 
 ```txt
 La señal existe, pero la muestra es baja; conviene pedir más reviews antes de concluir.
@@ -460,7 +300,7 @@ La señal existe, pero la muestra es baja; conviene pedir más reviews antes de 
 
 ## Regla final
 
-Responder siempre desde datos del backend.
+Responder desde datos del backend.
+Interpretar con criterio.
 No inventar.
 No mostrar JSON.
-No explicar el sistema salvo que el usuario lo pida.
