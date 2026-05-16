@@ -67,22 +67,6 @@ action/recomendación ejecutiva
 sentimiento semántico
 ```
 
-## Estado validado
-
-Validado al 2026-05-15:
-
-```txt
-snapshots: 727
-indexed_places: 727
-reviews: 717
-indexed_reviews: 717
-reviewed_places: 156
-locations: 61
-snapshots_updated: true
-reviews_updated: true
-updated: true
-```
-
 ## Normalización actual
 
 Ownership normalizado:
