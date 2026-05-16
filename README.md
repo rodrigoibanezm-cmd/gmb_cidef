@@ -13,20 +13,12 @@ LLM hace semántica.
 Backend entrega datos, métricas, evidencia y forma del JSON.
 ```
 
-## Estado validado
+## Estado operativo actual
 
-Validado al 2026-05-15:
+Ver:
 
 ```txt
-snapshots: 727
-indexed_places: 727
-reviews: 717
-indexed_reviews: 717
-reviewed_places: 156
-locations: 61
-snapshots_updated: true
-reviews_updated: true
-updated: true
+docs/operations.md
 ```
 
 ## Endpoint principal del agente
