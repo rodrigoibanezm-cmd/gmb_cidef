@@ -48,6 +48,12 @@ cause -> compare_query con include_evidence=true y semantic_required=true
 
 `action` y `cause` no deciden nada en backend.
 
+Importante:
+
+```txt
+action/cause son intents de preparación de evidencia, no intents de decisión.
+```
+
 Solo entregan datos suficientes para que el LLM interprete.
 
 ## Payload ejemplo
