@@ -12,7 +12,7 @@ El agente nunca consulta Google Places en runtime.
 El agente consulta JSON generado desde Upstash e índices.
 ```
 
-El objetivo es tener un motor comparativo capaz de responder preguntas de reputación por ubicación, marca, operador, rol de tienda, rating, volumen de reseñas, brechas competitivas, evidencia textual y cambios temporales básicos por ubicación.
+El objetivo es tener un motor comparativo capaz de responder preguntas de reputación por ubicación, marca, operador, rol de tienda, rating, volumen de reseñas, brechas competitivas, evidencia textual, prioridad de acción y cambios temporales básicos por ubicación.
 
 ---
 
@@ -63,7 +63,18 @@ Intents validados:
 ranking: OK, devuelve ubicaciones propias.
 gap: OK, devuelve brecha vs líder y evidencia opcional.
 evidence: OK, devuelve evidencia sin exponer keys Redis.
+action: OK, devuelve prioridad, motivo y acción recomendada.
 temporal: implementado, pero requiere índices comparables entre fechas.
+```
+
+Caso validado de action:
+
+```txt
+mall_plaza_egana
+priority=alta
+rating=2.9
+gap_vs_top=2.1
+confidence=media
 ```
 
 ---
@@ -472,6 +483,12 @@ Archivo ejecutor:
 lib/gmb/queryExecutor.js
 ```
 
+Motor de acción:
+
+```txt
+lib/gmb/actionPolicy.js
+```
+
 El contrato normaliza y valida:
 
 ```txt
@@ -548,6 +565,7 @@ ranking
 gap
 temporal
 evidence
+action
 ```
 
 Reglas del router:
@@ -557,6 +575,7 @@ ranking -> compare_query con default ownership_group="own"
 gap -> compare_query con default metric="gap_vs_top"
 temporal -> compare_query con scope="temporal"
 evidence -> compare_query con include_evidence=true
+action -> compare_query + actionPolicy
 ```
 
 `POST /api/query/compare` queda como endpoint técnico/debug.
@@ -587,7 +606,83 @@ El output de evidencia no expone keys Redis.
 
 ---
 
-## 10. Comparación temporal — alcance actual
+## 10. Motor `actionPolicy v1`
+
+El motor de acción deriva prioridad y recomendación desde resultados de `gap_vs_top`.
+
+Endpoint:
+
+```txt
+POST /api/agent/router
+```
+
+Intent:
+
+```txt
+action
+```
+
+Payload de prueba:
+
+```json
+{
+  "intent": "action",
+  "params": {
+    "date": "2026-05-15",
+    "output": {
+      "max_rows": 5
+    }
+  }
+}
+```
+
+Flujo:
+
+```txt
+intent=action
+-> compare_query scope=extra metric=gap_vs_top ownership_group=own
+-> actionPolicy
+-> recommended + actions[]
+```
+
+Reglas v1:
+
+```txt
+confidence=baja -> prioridad baja + pedir más reviews
+gap_vs_top >= 1.5 -> prioridad alta
+rating < 3 -> prioridad alta
+gap_vs_top >= 1.0 -> prioridad media
+resto -> prioridad baja
+```
+
+Output:
+
+```txt
+recommended: ubicación prioritaria
+actions[]: lista ordenada por score de riesgo
+priority: alta | media | baja
+reason: motivo
+action: acción recomendada
+metrics: rating, reviews, confidence, gap_vs_top, position
+```
+
+Estado validado:
+
+```txt
+mall_plaza_egana fue recomendado como prioridad alta.
+Motivo: rating 2.9 y gap_vs_top 2.1 contra líder local.
+```
+
+Limitación actual:
+
+```txt
+El output aún incluye row completo para trazabilidad.
+Más adelante se debe compactar para el agente.
+```
+
+---
+
+## 11. Comparación temporal — alcance actual
 
 La primera capa temporal compara cambios por ubicación entre dos fechas.
 
@@ -664,7 +759,7 @@ Ejemplo:
 
 ---
 
-## 11. Endpoints actuales
+## 12. Endpoints actuales
 
 ### Agent router
 
@@ -710,7 +805,7 @@ GET /api/gmb/debug/classified-sample?limit=3
 
 ---
 
-## 12. Reglas de costo
+## 13. Reglas de costo
 
 Costo real:
 
@@ -730,7 +825,7 @@ Reviews reales se guardan una sola vez por review_hash global.
 
 ---
 
-## 13. Problemas detectados y correcciones
+## 14. Problemas detectados y correcciones
 
 ### Snapshot barato repetía gasto
 
@@ -818,22 +913,35 @@ Corrección:
 POST /api/agent/router recibe intent + params y deriva a compare_query.
 ```
 
+### Action policy agregado
+
+Causa:
+
+```txt
+El agente necesitaba priorizar ubicaciones sin delegar la regla al LLM.
+```
+
+Corrección:
+
+```txt
+lib/gmb/actionPolicy.js deriva prioridad y acción desde gap/rating/confidence.
+```
+
 ---
 
-## 14. Pendientes inmediatos
+## 15. Pendientes inmediatos
 
-1. Crear motor `actionPolicy` para prioridad/acción recomendada.
-2. Crear motor `causeSignals` para causa limitada sobre reviews.
-3. Compactar outputs para el agente cuando no necesite `place_id`.
-4. Separar endpoints legacy de los nuevos endpoints de query.
-5. Comparación temporal agregada por brand/operator/store_role.
-6. Diferencia de reviews entre fechas usando `review_seen:{date}`.
-7. Migrar normalización de ownership a `client_config`.
-8. Limpiar mezcla histórica de keys viejas/nuevas en evidencia.
+1. Crear motor `causeSignals` para causa limitada sobre reviews.
+2. Compactar outputs para el agente cuando no necesite `place_id`.
+3. Separar endpoints legacy de los nuevos endpoints de query.
+4. Comparación temporal agregada por brand/operator/store_role.
+5. Diferencia de reviews entre fechas usando `review_seen:{date}`.
+6. Migrar normalización de ownership a `client_config`.
+7. Limpiar mezcla histórica de keys viejas/nuevas en evidencia.
 
 ---
 
-## 15. Principio rector
+## 16. Principio rector
 
 La mejor solución es la más simple.
 
