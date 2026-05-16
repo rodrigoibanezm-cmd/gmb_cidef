@@ -1,5 +1,30 @@
 # Operations
 
+## Estado validado
+
+Validado al 2026-05-15:
+
+```txt
+snapshots: 727
+indexed_places: 727
+reviews: 717
+indexed_reviews: 717
+reviewed_places: 156
+locations: 61
+snapshots_updated: true
+reviews_updated: true
+updated: true
+```
+
+Interpretación:
+
+```txt
+Light completo: 727 lugares.
+Reviews disponibles: 717 reviews visibles.
+Lugares con reviews visibles: 156.
+Índices consistentes: sí.
+```
+
 ## Tipos de captura
 
 ### 1. Backfill / completar faltantes
