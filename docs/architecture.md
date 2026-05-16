@@ -12,10 +12,17 @@ El agente consulta JSON generado desde Upstash e índices.
 
 ```txt
 LLM = semántica in/out.
-Backend = datos, rutas, contratos, cálculos, evidencia y forma de respuesta.
+Backend = datos, rutas, contratos, cálculos, evidencia y forma del JSON.
 ```
 
 El backend no debe pensar, clasificar semánticamente ni escribir respuestas ejecutivas.
+
+Importante:
+
+```txt
+Backend = forma del JSON.
+LLM = forma narrativa.
+```
 
 El backend debe:
 
