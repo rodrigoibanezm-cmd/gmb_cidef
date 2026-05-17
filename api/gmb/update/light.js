@@ -71,7 +71,6 @@ export default async function handler(req, res) {
   const date = today();
   const limit = parseNumber(req.query.limit, 25);
   const maxBatches = parseNumber(req.query.max_batches, 40);
-  const stopOnError = req.query.stop_on_error === "true";
 
   const batches = [];
   const errors = [];
@@ -82,8 +81,9 @@ export default async function handler(req, res) {
 
     let done = false;
     let batchCount = 0;
+    let noProgressCount = 0;
 
-    while (!done && batchCount < maxBatches) {
+    while (!done && batchCount < maxBatches && noProgressCount < 3) {
       const result = await capturePlacesDemo({ limit, offset: 0 });
       batches.push({
         existing: result.existing,
@@ -95,9 +95,9 @@ export default async function handler(req, res) {
       });
 
       if (Array.isArray(result.errors)) errors.push(...result.errors);
-      if (stopOnError && result.failed > 0) break;
 
       done = result.done || result.processed === 0;
+      noProgressCount = result.saved === 0 ? noProgressCount + 1 : 0;
       batchCount += 1;
     }
 
@@ -112,6 +112,7 @@ export default async function handler(req, res) {
       max_batches: maxBatches,
       batches_run: batches.length,
       done: batches.at(-1)?.done || false,
+      stopped_reason: done ? "done" : noProgressCount >= 3 ? "no_progress" : "max_batches_reached",
       totals: {
         processed: batches.reduce((sum, item) => sum + item.processed, 0),
         saved: batches.reduce((sum, item) => sum + item.saved, 0),
