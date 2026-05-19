@@ -1,0 +1,71 @@
+tenant_id,industry,query,expected_store_role,expected_location,ownership_group
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Alto Hospicio Chile,competitor_store,alto_hospicio,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Angol Chile,competitor_store,angol,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Antofagasta Chile,competitor_store,antofagasta,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Antofagasta La Portada Chile,competitor_store,antofagasta_la_portada,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Arica Chile,competitor_store,arica,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Concepción Talcahuano Chile,competitor_store,autopista_concepcion_talcahuano,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Biobío Concepción Chile,competitor_store,biobio,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Calama Chile,competitor_store,calama,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Cantagallo Las Condes Chile,competitor_store,cantagallo,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Cauquenes Chile,competitor_store,cauquenes,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Cerrillos Chile,competitor_store,cerrillos,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Chillán Chile,competitor_store,chillan,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Chiloé Castro Chile,competitor_store,chiloe,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Copiapó Chile,competitor_store,copiapo,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Copiapó Cordillera Chile,competitor_store,copiapo_cordillera,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Coquimbo Chile,competitor_store,coquimbo,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Coronel Chile,competitor_store,coronel,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Coyhaique Chile,competitor_store,coyhaique,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Curicó Chile,competitor_store,curico,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat El Belloto Quilpué Chile,competitor_store,el_belloto,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat El Bosque Chile,competitor_store,el_bosque,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Estación Central Chile,competitor_store,estacion_central,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Huechuraba Chile,competitor_store,huechuraba,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Independencia Chile,competitor_store,independencia,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Iquique Chile,competitor_store,iquique,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Kennedy Las Condes Chile,competitor_store,kennedy,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat La Calera Chile,competitor_store,la_calera,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat La Reina Chile,competitor_store,la_reina,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat La Serena Chile,competitor_store,la_serena,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Balmaceda La Serena Chile,competitor_store,la_serena_balmaceda,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Las Condes Chile,competitor_store,las_condes,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Linares Chile,competitor_store,linares,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Los Ángeles Chile,competitor_store,los_angeles,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Los Domínicos Las Condes Chile,competitor_store,los_dominicos,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Maipú Chile,competitor_store,maipu,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Maitencillo Chile,competitor_store,maitencillo,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Mall Plaza El Trébol Talcahuano Chile,competitor_store,mall_plaza_el_trebol,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Mall Tobalaba Puente Alto Chile,competitor_store,mall_tobalaba,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Melipilla Chile,competitor_store,melipilla,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Ñuble Santiago Chile,competitor_store,nuble,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Nueva La Florida Chile,competitor_store,nueva_la_florida,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Ñuñoa Chile,competitor_store,nunoa,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Osorno Chile,competitor_store,osorno,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Ovalle Chile,competitor_store,ovalle,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Plaza Vespucio La Florida Chile,competitor_store,plaza_vespucio,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Puente Alto Chile,competitor_store,puente_alto,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Puerto Montt Chile,competitor_store,puerto_montt,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Alerce Puerto Montt Chile,competitor_store,puerto_montt_alerce,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Punta Arenas Chile,competitor_store,punta_arenas,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Quilicura Chile,competitor_store,quilicura,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Quilín Peñalolén Chile,competitor_store,quilin,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Quillota Chile,competitor_store,quillota,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Rancagua Chile,competitor_store,rancagua,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Reñaca Alto Viña del Mar Chile,competitor_store,renaca_alto,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat San Antonio Chile,competitor_store,san_antonio,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat San Bernardo Chile,competitor_store,san_bernardo,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat San Felipe Chile,competitor_store,san_felipe,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat San Fernando Chile,competitor_store,san_fernando,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat San Miguel Chile,competitor_store,san_miguel,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Santa Cruz Chile,competitor_store,santa_cruz,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Talagante Chile,competitor_store,talagante,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Talca Chile,competitor_store,talca,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Talca Colín Chile,competitor_store,talca_colin,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Temuco Cautín Chile,competitor_store,temuco_cautin,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Temuco Los Pablos Chile,competitor_store,temuco_los_pablos,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Valdivia Chile,competitor_store,valdivia,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Vallenar Chile,competitor_store,vallenar,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Valparaíso Chile,competitor_store,valparaiso,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Villarrica Chile,competitor_store,villarrica,competitor
+sodimac,home_improvement,Easy Construmart Imperial Chilemat Viña del Mar Chile,competitor_store,vina_del_mar,competitor
