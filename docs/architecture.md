@@ -5,7 +5,27 @@
 ```txt
 Google Places se usa solo para captura.
 El agente nunca consulta Google Places en runtime.
-El agente consulta JSON generado desde Upstash e índices.
+```
+
+Arquitectura actual:
+
+```txt
+Neon/Postgres = catálogo maestro y scope multi-tenant.
+Upstash/Redis = snapshots, reviews, índices y runtime/cache.
+Backend = cálculo determinístico.
+LLM = semántica y narrativa.
+```
+
+## Flujo runtime correcto
+
+```txt
+1. queryExecutor recibe tenant + filtros.
+2. Backend resuelve universo desde Neon/Postgres.
+3. Neon devuelve set de place_ids válidos.
+4. Backend trae snapshots/reviews desde Redis.
+5. Backend calcula ranking/gap/temporal.
+6. Backend devuelve JSON.
+7. LLM interpreta y redacta.
 ```
 
 ## Frontera LLM / backend
@@ -29,8 +49,9 @@ El backend debe:
 ```txt
 recibir una query estructurada
 validar contrato
-ejecutar contra datos persistidos/indexados
-devolver JSON controlado
+resolver tenant y universo operativo
+consultar snapshots persistidos
+calcular métricas
 aplicar forma de respuesta solicitada: raw | compact
 ```
 
@@ -67,6 +88,26 @@ action/recomendación ejecutiva
 sentimiento semántico
 ```
 
+## Multi-tenant actual
+
+La resolución de universo debe partir desde:
+
+```txt
+resolvePlacesFromPostgres(query)
+```
+
+Filtros actuales:
+
+```txt
+tenant_id
+industry
+normalized_location
+store_role
+ownership_group
+brand
+status=keep
+```
+
 ## Normalización actual
 
 Ownership normalizado:
@@ -87,7 +128,7 @@ Nota:
 
 ```txt
 Esta normalización es una migración operativa para la base actual.
-Para multi-tenant real, la regla debe salir de client_config, no quedar hardcodeada.
+Para multi-tenant real, la regla debe salir de configuración tenant/client.
 ```
 
 ## Principio rector
@@ -99,13 +140,14 @@ La mejor solución es la más simple.
 Para esta etapa:
 
 ```txt
+resolver universo desde Neon
 capturar faltantes
-persistir en Upstash
-validar índice
-consultar con compare_query cerrado
+persistir snapshots/reviews en Redis
+consultar snapshots Redis por place_id
+calcular runtime determinístico
 ```
 
 No Google en runtime.
-No SQL libre.
-No endpoints ad hoc por cada pregunta.
+No SQL libre expuesto al LLM.
+No endpoints ad hoc por pregunta.
 No hardcodear clientes dentro del motor.
