@@ -1,18 +1,102 @@
 # Data Model
 
-## Base clasificada
+## Principio actual
 
 ```txt
-gmb:classified:v1
+Neon/Postgres = catálogo maestro de places y scope multi-tenant.
+Upstash/Redis = snapshots, reviews, índices y runtime/cache.
+```
+
+## Neon / Postgres
+
+### Tabla places
+
+```txt
+places
 ```
 
 Representa:
 
 ```txt
-la base maestra curada de places.
+catálogo maestro curado de lugares por tenant.
 ```
 
-Formato:
+Clave primaria:
+
+```txt
+(tenant_id, place_id)
+```
+
+Columnas principales:
+
+```txt
+tenant_id
+place_id
+industry
+name
+brand
+normalized_location
+operator
+ownership_group
+store_role
+status
+address
+raw
+created_at
+updated_at
+```
+
+Regla:
+
+```txt
+status=keep define los places activos para captura/runtime.
+```
+
+Uso actual:
+
+```txt
+captura barata lee place_id desde places.
+captura cara lee place_id desde places.
+query runtime debe resolver universo desde places.
+```
+
+Para CIDEF:
+
+```txt
+tenant_id = cidef
+industry = automotive
+```
+
+Para otros tenants:
+
+```txt
+tenant_id = cliente
+industry = industria del cliente
+store_role = formato operativo flexible por industria
+```
+
+Ejemplos de store_role:
+
+```txt
+automotive: dealer | service | parts
+home_improvement: homecenter | constructor | competitor_store
+```
+
+## Redis legacy: base clasificada
+
+```txt
+gmb:classified:v1
+```
+
+Estado:
+
+```txt
+legacy / fuente de migración.
+```
+
+Ya no debe ser la fuente maestra para captura.
+
+Formato histórico:
 
 ```txt
 HSET gmb:classified:v1 {place_id} {json}
@@ -30,6 +114,12 @@ Representa:
 rating
 review_count
 estado observado ese día
+```
+
+Fecha:
+
+```txt
+captured_date usa America/Santiago.
 ```
 
 ## Review única global
@@ -56,7 +146,7 @@ Representa:
 la review fue vista ese día
 ```
 
-## Índices diarios
+## Índices diarios en Redis
 
 ### snapshots
 
@@ -64,7 +154,7 @@ la review fue vista ese día
 gmb:index:{date}:snapshot_keys
 ```
 
-### place ids
+### place ids capturados
 
 ```txt
 gmb:index:{date}:place_ids
@@ -82,9 +172,9 @@ gmb:index:{date}:review_keys
 gmb:index:{date}:place:{place_id}:review_keys
 ```
 
-## Rankings
+## Rankings Redis actuales
 
-### locations
+### locations por store_role
 
 ```txt
 gmb:index:{date}:locations:dealer
@@ -102,11 +192,11 @@ gmb:index:{date}:location:{location}:ranking:parts
 gmb:index:{date}:location:{location}:ranking:all
 ```
 
-## Compatibilidad actual
+Nota:
 
 ```txt
-gmb:index:{date}:locations = dealer
-gmb:index:{date}:location:{location}:ranking = dealer
+Estos índices existen por compatibilidad CIDEF.
+El runtime multi-tenant debe partir desde Neon/placeResolver y luego leer snapshots Redis por place_id.
 ```
 
 ## Regla importante
