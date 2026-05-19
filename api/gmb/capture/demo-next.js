@@ -4,7 +4,12 @@ import { gmbCaptureKeys } from "../../../lib/gmb/keys.js";
 import { redisCommand } from "../../../lib/gmb/redis.js";
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function parseNumber(value, fallback) {
@@ -46,7 +51,8 @@ export default async function handler(req, res) {
     const run = await readRun(date);
     const result = await capturePlacesDemo({ limit, offset: 0 });
     const nextRun = buildNextRun(run, result, limit);
-    const index = result.done ? await buildGmbIndexes({ date }) : null;
+    const shouldBuildIndex = result.done && (result.saved > 0 || req.query.rebuild_index === "true");
+    const index = shouldBuildIndex ? await buildGmbIndexes({ date }) : null;
 
     await saveRun(date, nextRun);
 
