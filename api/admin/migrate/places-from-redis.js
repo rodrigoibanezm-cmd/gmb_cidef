@@ -2,6 +2,7 @@ import { redisCommand } from "../../../lib/gmb/redis.js";
 import { dbQuery } from "../../../lib/gmb/postgres.js";
 
 const HASH_KEY = "gmb:classified:v1";
+const TENANT_ID = "cidef";
 
 function parseEntries(result) {
   const entries = [];
@@ -40,6 +41,7 @@ export default async function handler(req, res) {
         await dbQuery(
           `
           insert into places (
+            tenant_id,
             place_id,
             name,
             brand,
@@ -53,9 +55,9 @@ export default async function handler(req, res) {
             updated_at
           )
           values (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now()
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now()
           )
-          on conflict (place_id)
+          on conflict (tenant_id, place_id)
           do update set
             name = excluded.name,
             brand = excluded.brand,
@@ -69,6 +71,7 @@ export default async function handler(req, res) {
             updated_at = now()
           `,
           [
+            TENANT_ID,
             item.place_id,
             item.name || null,
             item.brand || null,
@@ -94,6 +97,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
+      tenant_id: TENANT_ID,
       hash: HASH_KEY,
       total: entries.length,
       inserted,
