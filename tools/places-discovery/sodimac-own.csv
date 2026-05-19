@@ -1,0 +1,74 @@
+tenant_id,industry,query,expected_brand,expected_store_role,expected_location,ownership_group
+sodimac,home_improvement,Constructor Cantagallo Chile,sodimac,constructor,cantagallo,own
+sodimac,home_improvement,Sodimac Cerrillos Chile,sodimac,homecenter,cerrillos,own
+sodimac,home_improvement,Sodimac El Bosque Chile,sodimac,homecenter,el_bosque,own
+sodimac,home_improvement,Sodimac Estación Central Chile,sodimac,homecenter,estacion_central,own
+sodimac,home_improvement,Sodimac Huechuraba Chile,sodimac,homecenter,huechuraba,own
+sodimac,home_improvement,Sodimac Independencia Chile,sodimac,homecenter,independencia,own
+sodimac,home_improvement,Sodimac Kennedy Chile,sodimac,homecenter,kennedy,own
+sodimac,home_improvement,Sodimac La Reina Chile,sodimac,homecenter,la_reina,own
+sodimac,home_improvement,Sodimac Las Condes Chile,sodimac,homecenter,las_condes,own
+sodimac,home_improvement,Sodimac Los Domínicos Chile,sodimac,homecenter,los_dominicos,own
+sodimac,home_improvement,Sodimac Maipú Chile,sodimac,homecenter,maipu,own
+sodimac,home_improvement,Sodimac Mall Tobalaba Chile,sodimac,homecenter,mall_tobalaba,own
+sodimac,home_improvement,Sodimac Melipilla Chile,sodimac,homecenter,melipilla,own
+sodimac,home_improvement,Sodimac Nueva La Florida Chile,sodimac,homecenter,nueva_la_florida,own
+sodimac,home_improvement,Sodimac Ñuble Chile,sodimac,homecenter,nuble,own
+sodimac,home_improvement,Sodimac Ñuñoa Chile,sodimac,homecenter,nunoa,own
+sodimac,home_improvement,Sodimac Plaza Vespucio Chile,sodimac,homecenter,plaza_vespucio,own
+sodimac,home_improvement,Sodimac Puente Alto Chile,sodimac,homecenter,puente_alto,own
+sodimac,home_improvement,Sodimac Quilicura Chile,sodimac,homecenter,quilicura,own
+sodimac,home_improvement,Sodimac Quilín Chile,sodimac,homecenter,quilin,own
+sodimac,home_improvement,Sodimac San Bernardo Chile,sodimac,homecenter,san_bernardo,own
+sodimac,home_improvement,Sodimac San Miguel Chile,sodimac,homecenter,san_miguel,own
+sodimac,home_improvement,Sodimac Talagante Chile,sodimac,homecenter,talagante,own
+sodimac,home_improvement,Sodimac Alto Hospicio Chile,sodimac,homecenter,alto_hospicio,own
+sodimac,home_improvement,Sodimac Iquique Chile,sodimac,homecenter,iquique,own
+sodimac,home_improvement,Constructor Antofagasta Chile,sodimac,constructor,antofagasta,own
+sodimac,home_improvement,Sodimac Antofagasta Chile,sodimac,homecenter,antofagasta,own
+sodimac,home_improvement,Sodimac Antofagasta La Portada Chile,sodimac,homecenter,antofagasta_la_portada,own
+sodimac,home_improvement,Sodimac Calama Chile,sodimac,homecenter,calama,own
+sodimac,home_improvement,Sodimac Copiapó Chile,sodimac,homecenter,copiapo,own
+sodimac,home_improvement,Sodimac Copiapó Cordillera Chile,sodimac,homecenter,copiapo_cordillera,own
+sodimac,home_improvement,Sodimac Vallenar Chile,sodimac,homecenter,vallenar,own
+sodimac,home_improvement,Sodimac Coquimbo Chile,sodimac,homecenter,coquimbo,own
+sodimac,home_improvement,Sodimac La Serena Chile,sodimac,homecenter,la_serena,own
+sodimac,home_improvement,Sodimac La Serena Balmaceda Chile,sodimac,homecenter,la_serena_balmaceda,own
+sodimac,home_improvement,Sodimac Ovalle Chile,sodimac,homecenter,ovalle,own
+sodimac,home_improvement,Constructor Valparaíso Chile,sodimac,constructor,valparaiso,own
+sodimac,home_improvement,Sodimac San Antonio Chile,sodimac,homecenter,san_antonio,own
+sodimac,home_improvement,Constructor Viña del Mar Chile,sodimac,constructor,vina_del_mar,own
+sodimac,home_improvement,Sodimac Viña del Mar Chile,sodimac,homecenter,vina_del_mar,own
+sodimac,home_improvement,Sodimac Maitencillo Chile,sodimac,homecenter,maitencillo,own
+sodimac,home_improvement,Sodimac El Belloto Chile,sodimac,homecenter,el_belloto,own
+sodimac,home_improvement,Sodimac Quillota Chile,sodimac,homecenter,quillota,own
+sodimac,home_improvement,Sodimac San Felipe Chile,sodimac,homecenter,san_felipe,own
+sodimac,home_improvement,Sodimac Reñaca Alto Chile,sodimac,homecenter,renaca_alto,own
+sodimac,home_improvement,Sodimac La Calera Chile,sodimac,homecenter,la_calera,own
+sodimac,home_improvement,Constructor Rancagua Chile,sodimac,constructor,rancagua,own
+sodimac,home_improvement,Sodimac Rancagua Chile,sodimac,homecenter,rancagua,own
+sodimac,home_improvement,Sodimac San Fernando Chile,sodimac,homecenter,san_fernando,own
+sodimac,home_improvement,Sodimac Santa Cruz Chile,sodimac,homecenter,santa_cruz,own
+sodimac,home_improvement,Sodimac Talca Chile,sodimac,homecenter,talca,own
+sodimac,home_improvement,Sodimac Cauquenes Chile,sodimac,homecenter,cauquenes,own
+sodimac,home_improvement,Sodimac Linares Chile,sodimac,homecenter,linares,own
+sodimac,home_improvement,Sodimac Talca-Colín Chile,sodimac,homecenter,talca_colin,own
+sodimac,home_improvement,Sodimac Curicó Chile,sodimac,homecenter,curico,own
+sodimac,home_improvement,Sodimac Los Ángeles Chile,sodimac,homecenter,los_angeles,own
+sodimac,home_improvement,Sodimac Coronel Chile,sodimac,homecenter,coronel,own
+sodimac,home_improvement,Sodimac Mall Plaza El Trébol Chile,sodimac,homecenter,mall_plaza_el_trebol,own
+sodimac,home_improvement,Sodimac Autopista Concepción-Talcahuano Chile,sodimac,homecenter,autopista_concepcion_talcahuano,own
+sodimac,home_improvement,Sodimac Biobío Chile,sodimac,homecenter,biobio,own
+sodimac,home_improvement,Sodimac Angol Chile,sodimac,homecenter,angol,own
+sodimac,home_improvement,Sodimac Temuco Cautín Chile,sodimac,homecenter,temuco_cautin,own
+sodimac,home_improvement,Sodimac Temuco Los Pablos Chile,sodimac,homecenter,temuco_los_pablos,own
+sodimac,home_improvement,Sodimac Villarrica Chile,sodimac,homecenter,villarrica,own
+sodimac,home_improvement,Sodimac Osorno Chile,sodimac,homecenter,osorno,own
+sodimac,home_improvement,Sodimac Puerto Montt Chile,sodimac,homecenter,puerto_montt,own
+sodimac,home_improvement,Sodimac Chiloé Chile,sodimac,homecenter,chiloe,own
+sodimac,home_improvement,Sodimac Puerto Montt Alerce Chile,sodimac,homecenter,puerto_montt_alerce,own
+sodimac,home_improvement,Sodimac Coyhaique Chile,sodimac,homecenter,coyhaique,own
+sodimac,home_improvement,Sodimac Punta Arenas Chile,sodimac,homecenter,punta_arenas,own
+sodimac,home_improvement,Sodimac Valdivia Chile,sodimac,homecenter,valdivia,own
+sodimac,home_improvement,Sodimac Arica Chile,sodimac,homecenter,arica,own
+sodimac,home_improvement,Sodimac Chillán Chile,sodimac,homecenter,chillan,own
