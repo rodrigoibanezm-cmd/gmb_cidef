@@ -3,7 +3,8 @@ import { dbQuery } from "../../../lib/gmb/postgres.js";
 const statements = [
   `
   create table if not exists places (
-    place_id text primary key,
+    tenant_id text not null,
+    place_id text not null,
     name text,
     brand text,
     normalized_location text,
@@ -14,12 +15,14 @@ const statements = [
     address text,
     raw jsonb,
     created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
+    updated_at timestamptz not null default now(),
+    primary key (tenant_id, place_id)
   )
   `,
-  `create index if not exists idx_places_brand on places (brand)`,
-  `create index if not exists idx_places_location on places (normalized_location)`,
-  `create index if not exists idx_places_status on places (status)`,
+  `create index if not exists idx_places_tenant_brand on places (tenant_id, brand)`,
+  `create index if not exists idx_places_tenant_location on places (tenant_id, normalized_location)`,
+  `create index if not exists idx_places_tenant_status on places (tenant_id, status)`,
+  `create index if not exists idx_places_tenant_role on places (tenant_id, store_role)`,
 ];
 
 export default async function handler(req, res) {
@@ -34,7 +37,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      message: "places schema initialized",
+      message: "multi-tenant places schema initialized",
       statements: statements.length,
     });
   } catch (error) {
