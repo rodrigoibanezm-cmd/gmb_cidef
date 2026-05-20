@@ -35,7 +35,9 @@ function snapshotPlaceId(date, key, tenantId) {
 
 function reviewSeenParts(date, key, tenantId) {
   const raw = key.replace(gmbCaptureKeys.reviewSeen(date, "", "", tenantId), "");
-  const [placeId, reviewHash] = raw.split(":");
+  const parts = raw.split(":");
+  const reviewHash = parts.pop();
+  const placeId = parts.join(":");
   return { placeId, reviewHash };
 }
 
