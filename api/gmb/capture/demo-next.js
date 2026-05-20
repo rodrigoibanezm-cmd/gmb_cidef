@@ -17,17 +17,18 @@ function parseNumber(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-async function readRun(date) {
-  const raw = await redisCommand(["GET", gmbCaptureKeys.run(date)]);
+async function readRun(date, tenantId) {
+  const raw = await redisCommand(["GET", gmbCaptureKeys.run(date, tenantId)]);
   return raw ? JSON.parse(raw) : null;
 }
 
-async function saveRun(date, run) {
-  await redisCommand(["SET", gmbCaptureKeys.run(date), JSON.stringify(run)]);
+async function saveRun(date, tenantId, run) {
+  await redisCommand(["SET", gmbCaptureKeys.run(date, tenantId), JSON.stringify(run)]);
 }
 
 function buildNextRun(previousRun, result, limit) {
   return {
+    tenant_id: result.tenant_id,
     captured_date: result.captured_date,
     total: result.total,
     existing: result.existing,
@@ -36,6 +37,7 @@ function buildNextRun(previousRun, result, limit) {
     saved: Number(previousRun?.saved || 0) + result.saved,
     failed: Number(previousRun?.failed || 0) + result.failed,
     done: result.done,
+    indexes_built: false,
     updated_at: new Date().toISOString(),
   };
 }
@@ -47,16 +49,18 @@ export default async function handler(req, res) {
 
   try {
     const date = today();
+    const tenantId = req.query.tenant || req.query.tenant_id || "cidef";
     const limit = parseNumber(req.query.limit, 25);
-    const run = await readRun(date);
-    const result = await capturePlacesDemo({ limit, offset: 0 });
+    const run = await readRun(date, tenantId);
+    const result = await capturePlacesDemo({ limit, offset: 0, tenantId });
     const nextRun = buildNextRun(run, result, limit);
-    const shouldBuildIndex = result.done && (result.saved > 0 || req.query.rebuild_index === "true");
-    const index = shouldBuildIndex ? await buildGmbIndexes({ date }) : null;
+    const shouldBuildIndex = result.done || req.query.rebuild_index === "true";
+    const index = shouldBuildIndex ? await buildGmbIndexes({ date: result.captured_date, tenantId }) : null;
 
-    await saveRun(date, nextRun);
+    nextRun.indexes_built = Boolean(index);
+    await saveRun(date, tenantId, nextRun);
 
-    return res.status(200).json({ ok: true, result, run: nextRun, index });
+    return res.status(200).json({ ok: true, tenant_id: tenantId, result, run: nextRun, index });
   } catch (error) {
     console.error("capture demo-next failed", error);
     return res.status(500).json({ ok: false, error: "capture_demo_next_failed" });
