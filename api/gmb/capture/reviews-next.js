@@ -1,9 +1,15 @@
 import { capturePlacesReviews } from "../../../lib/gmb/capturePlacesReviews.js";
+import { buildGmbIndexes } from "../../../lib/gmb/indexBuilder.js";
 import { gmbCaptureKeys } from "../../../lib/gmb/keys.js";
 import { redisCommand } from "../../../lib/gmb/redis.js";
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function parseNumber(value, fallback) {
@@ -15,26 +21,28 @@ function hasConfirm(req) {
   return req.query.confirm === "true";
 }
 
-async function readRun(date) {
-  const raw = await redisCommand(["GET", gmbCaptureKeys.reviewsRun(date)]);
+async function readRun(date, tenantId) {
+  const raw = await redisCommand(["GET", gmbCaptureKeys.reviewsRun(date, tenantId)]);
   return raw ? JSON.parse(raw) : null;
 }
 
-async function saveRun(date, run) {
-  await redisCommand(["SET", gmbCaptureKeys.reviewsRun(date), JSON.stringify(run)]);
+async function saveRun(date, tenantId, run) {
+  await redisCommand(["SET", gmbCaptureKeys.reviewsRun(date, tenantId), JSON.stringify(run)]);
 }
 
 function buildNextRun(previousRun, result, limit) {
   return {
+    tenant_id: result.tenant_id,
     captured_date: result.captured_date,
     total: result.total,
     existing: result.existing,
-    missing: result.missing,
+    checked: result.checked,
     limit,
     saved: Number(previousRun?.saved || 0) + result.saved,
     reviews_saved: Number(previousRun?.reviews_saved || 0) + result.reviews_saved,
     failed: Number(previousRun?.failed || 0) + result.failed,
     done: result.done,
+    indexes_built: false,
     updated_at: new Date().toISOString(),
   };
 }
@@ -50,14 +58,18 @@ export default async function handler(req, res) {
 
   try {
     const date = today();
+    const tenantId = req.query.tenant || req.query.tenant_id || "cidef";
     const limit = parseNumber(req.query.limit, 10);
-    const run = await readRun(date);
-    const result = await capturePlacesReviews({ limit, offset: 0 });
+    const run = await readRun(date, tenantId);
+    const result = await capturePlacesReviews({ limit, tenantId });
     const nextRun = buildNextRun(run, result, limit);
+    const shouldBuildIndex = result.done || req.query.rebuild_index === "true";
+    const index = shouldBuildIndex ? await buildGmbIndexes({ date: result.captured_date, tenantId }) : null;
 
-    await saveRun(date, nextRun);
+    nextRun.indexes_built = Boolean(index);
+    await saveRun(date, tenantId, nextRun);
 
-    return res.status(200).json({ ok: true, result, run: nextRun });
+    return res.status(200).json({ ok: true, tenant_id: tenantId, result, run: nextRun, index });
   } catch (error) {
     console.error("capture reviews-next failed", error);
     return res.status(500).json({ ok: false, error: "capture_reviews_next_failed" });
