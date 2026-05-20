@@ -1,4 +1,5 @@
 import { redisCommand } from "../../../lib/gmb/redis.js";
+import { gmbCaptureKeys } from "../../../lib/gmb/keys.js";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -28,19 +29,19 @@ async function scanKeys(pattern) {
   return keys;
 }
 
-function snapshotPlaceId(date, key) {
-  return key.replace(`gmb:snapshot:${date}:`, "");
+function snapshotPlaceId(date, key, tenantId) {
+  return key.replace(gmbCaptureKeys.snapshot(date, "", tenantId), "");
 }
 
-function reviewSeenParts(date, key) {
-  const raw = key.replace(`gmb:review_seen:${date}:`, "");
+function reviewSeenParts(date, key, tenantId) {
+  const raw = key.replace(gmbCaptureKeys.reviewSeen(date, "", "", tenantId), "");
   const [placeId, reviewHash] = raw.split(":");
   return { placeId, reviewHash };
 }
 
-function reviewKeyFromSeen(date, key) {
-  const { placeId, reviewHash } = reviewSeenParts(date, key);
-  return `gmb:review:${placeId}:${reviewHash}`;
+function reviewKeyFromSeen(date, key, tenantId) {
+  const { placeId, reviewHash } = reviewSeenParts(date, key, tenantId);
+  return gmbCaptureKeys.review(placeId, reviewHash, tenantId);
 }
 
 function unique(values) {
@@ -50,17 +51,18 @@ function unique(values) {
 export default async function handler(req, res) {
   try {
     const date = req.query.date || today();
+    const tenantId = req.query.tenant || req.query.tenant_id || "cidef";
 
-    const snapshotKeys = await scanKeys(`gmb:snapshot:${date}:*`);
-    const reviewSeenKeys = await scanKeys(`gmb:review_seen:${date}:*`);
-    const reviewKeys = reviewSeenKeys.map((key) => reviewKeyFromSeen(date, key));
+    const snapshotKeys = await scanKeys(gmbCaptureKeys.snapshot(date, "*", tenantId));
+    const reviewSeenKeys = await scanKeys(gmbCaptureKeys.reviewSeen(date, "*", "*", tenantId));
+    const reviewKeys = reviewSeenKeys.map((key) => reviewKeyFromSeen(date, key, tenantId));
 
-    const indexedPlaceIds = safeJson(await redisCommand(["GET", `gmb:index:${date}:place_ids`])) || [];
-    const indexedReviewKeys = safeJson(await redisCommand(["GET", `gmb:index:${date}:review_keys`])) || [];
-    const locations = safeJson(await redisCommand(["GET", `gmb:index:${date}:locations`])) || [];
+    const indexedPlaceIds = safeJson(await redisCommand(["GET", gmbCaptureKeys.index(date, "place_ids", tenantId)])) || [];
+    const indexedReviewKeys = safeJson(await redisCommand(["GET", gmbCaptureKeys.index(date, "review_keys", tenantId)])) || [];
+    const locations = safeJson(await redisCommand(["GET", gmbCaptureKeys.index(date, "locations", tenantId)])) || [];
 
-    const snapshotPlaceIds = snapshotKeys.map((key) => snapshotPlaceId(date, key));
-    const reviewedPlaceIds = unique(reviewSeenKeys.map((key) => reviewSeenParts(date, key).placeId));
+    const snapshotPlaceIds = snapshotKeys.map((key) => snapshotPlaceId(date, key, tenantId));
+    const reviewedPlaceIds = unique(reviewSeenKeys.map((key) => reviewSeenParts(date, key, tenantId).placeId));
 
     const indexedSet = new Set(indexedPlaceIds);
     const indexedReviewSet = new Set(indexedReviewKeys);
@@ -71,7 +73,7 @@ export default async function handler(req, res) {
     const missing_place_review_index = [];
 
     for (const placeId of reviewedPlaceIds) {
-      const perPlaceKeys = safeJson(await redisCommand(["GET", `gmb:index:${date}:place:${placeId}:review_keys`])) || [];
+      const perPlaceKeys = safeJson(await redisCommand(["GET", gmbCaptureKeys.placeReviewIndex(date, placeId, tenantId)])) || [];
 
       if (perPlaceKeys.length === 0) {
         missing_place_review_index.push(placeId);
@@ -87,6 +89,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
+      tenant_id: tenantId,
       date,
       updated: snapshotsUpdated && reviewsUpdated,
       snapshots_updated: snapshotsUpdated,
