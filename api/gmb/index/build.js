@@ -8,6 +8,7 @@ export default async function handler(req, res) {
 
   try {
     const date = req.query.date || undefined;
+    const tenantId = req.query.tenant || req.query.tenant_id || "cidef";
     const normalizeOwnership = req.query.normalize_ownership === "true";
 
     let normalization = null;
@@ -16,10 +17,11 @@ export default async function handler(req, res) {
       normalization = await normalizeClassifiedOwnership();
     }
 
-    const result = await buildGmbIndexes({ date });
+    const result = await buildGmbIndexes({ date, tenantId });
 
     return res.status(200).json({
       ok: true,
+      tenant_id: tenantId,
       normalization,
       index: result,
     });
