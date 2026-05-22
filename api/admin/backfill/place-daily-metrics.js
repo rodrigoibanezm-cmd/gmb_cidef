@@ -1,6 +1,7 @@
 import { redisCommand } from "../../../lib/gmb/redis.js";
 import { dbQuery } from "../../../lib/gmb/postgres.js";
 import { resolvePlacesFromPostgres } from "../../../lib/gmb/placeResolver.js";
+import { gmbCaptureKeys } from "../../../lib/gmb/keys.js";
 
 function safeJson(value) {
   if (!value) return null;
@@ -77,7 +78,8 @@ export default async function handler(req, res) {
 
     for (const place of places) {
       try {
-        const raw = await redisCommand(["GET", `gmb:snapshot:${date}:${place.place_id}`]);
+        const key = gmbCaptureKeys.snapshot(date, place.place_id, tenantId);
+        const raw = await redisCommand(["GET", key]);
         const snapshot = safeJson(raw);
 
         if (!snapshot) {
