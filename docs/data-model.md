@@ -3,8 +3,8 @@
 ## Principio actual
 
 ```txt
-Neon/Postgres = catálogo maestro de places y scope multi-tenant.
-Upstash/Redis = snapshots, reviews, índices y runtime/cache.
+Neon/Postgres = catálogo maestro + métricas runtime.
+Upstash/Redis = evidencia cruda + snapshots + índices legacy/fallback.
 ```
 
 ## Neon / Postgres
@@ -21,7 +21,7 @@ Representa:
 catálogo maestro curado de lugares por tenant.
 ```
 
-Clave primaria:
+Clave primaria lógica:
 
 ```txt
 (tenant_id, place_id)
@@ -36,6 +36,8 @@ industry
 name
 brand
 normalized_location
+market_group
+region
 operator
 ownership_group
 store_role
@@ -49,37 +51,66 @@ updated_at
 Regla:
 
 ```txt
-status=keep define los places activos para captura/runtime.
+status=keep define los places activos para runtime y captura.
 ```
+
+Modelo de ubicación:
+
+```txt
+normalized_location = comuna / unidad mínima comparable
+market_group = ciudad / zona mayor
+region = región
+```
+
+### Tabla place_daily_metrics
+
+```txt
+place_daily_metrics
+```
+
+Representa:
+
+```txt
+métrica diaria compacta para runtime Neon.
+```
+
+Uso:
+
+```txt
+ranking
+gap_vs_top
+agregados por brand/operator/store_role/location/market_group/region
+```
+
+Campos mínimos:
+
+```txt
+tenant_id
+place_id
+captured_date
+rating
+review_count
+primary_type
+updated_at
+```
+
+Regla:
+
+```txt
+/api/query/compare usa Neon por default leyendo places + place_daily_metrics.
+```
+
+## Redis / Upstash
+
+Redis ya no es el runtime principal.
 
 Uso actual:
 
 ```txt
-captura barata lee place_id desde places.
-captura cara lee place_id desde places.
-query runtime debe resolver universo desde places.
-```
-
-Para CIDEF:
-
-```txt
-tenant_id = cidef
-industry = automotive
-```
-
-Para otros tenants:
-
-```txt
-tenant_id = cliente
-industry = industria del cliente
-store_role = formato operativo flexible por industria
-```
-
-Ejemplos de store_role:
-
-```txt
-automotive: dealer | service | parts
-home_improvement: homecenter | constructor | competitor_store
+snapshots crudos
+reviews crudas
+evidencia textual
+índices legacy/fallback
 ```
 
 ## Redis legacy: base clasificada
@@ -91,21 +122,17 @@ gmb:classified:v1
 Estado:
 
 ```txt
-legacy / fuente de migración.
+legacy / fuente histórica de migración.
 ```
 
-Ya no debe ser la fuente maestra para captura.
-
-Formato histórico:
-
-```txt
-HSET gmb:classified:v1 {place_id} {json}
-```
+Ya no debe ser la fuente maestra para captura ni runtime.
 
 ## Snapshot diario
 
+Formato multi-tenant actual:
+
 ```txt
-gmb:snapshot:{date}:{place_id}
+gmb:{tenant_id}:snapshot:{date}:{place_id}
 ```
 
 Representa:
@@ -114,6 +141,7 @@ Representa:
 rating
 review_count
 estado observado ese día
+raw mínimo de Google Places
 ```
 
 Fecha:
@@ -122,10 +150,10 @@ Fecha:
 captured_date usa America/Santiago.
 ```
 
-## Review única global
+## Review única global por tenant
 
 ```txt
-gmb:review:{place_id}:{review_hash}
+gmb:{tenant_id}:review:{place_id}:{review_hash}
 ```
 
 `review_hash`:
@@ -137,7 +165,7 @@ place_id + author + rating + publishTime
 ## Marca de vista diaria
 
 ```txt
-gmb:review_seen:{date}:{place_id}:{review_hash}
+gmb:{tenant_id}:review_seen:{date}:{place_id}:{review_hash}
 ```
 
 Representa:
@@ -146,57 +174,61 @@ Representa:
 la review fue vista ese día
 ```
 
-## Índices diarios en Redis
+## Índices diarios Redis legacy/fallback
 
 ### snapshots
 
 ```txt
-gmb:index:{date}:snapshot_keys
+gmb:{tenant_id}:index:{date}:snapshot_keys
 ```
 
 ### place ids capturados
 
 ```txt
-gmb:index:{date}:place_ids
+gmb:{tenant_id}:index:{date}:place_ids
 ```
 
 ### reviews
 
 ```txt
-gmb:index:{date}:review_keys
+gmb:{tenant_id}:index:{date}:review_keys
 ```
 
 ### reviews por place
 
 ```txt
-gmb:index:{date}:place:{place_id}:review_keys
+gmb:{tenant_id}:index:{date}:place:{place_id}:review_keys
 ```
 
-## Rankings Redis actuales
-
-### locations por store_role
+## Rankings Redis legacy
 
 ```txt
-gmb:index:{date}:locations:dealer
-gmb:index:{date}:locations:service
-gmb:index:{date}:locations:parts
-gmb:index:{date}:locations:all
-```
-
-### ranking por ubicación
-
-```txt
-gmb:index:{date}:location:{location}:ranking:dealer
-gmb:index:{date}:location:{location}:ranking:service
-gmb:index:{date}:location:{location}:ranking:parts
-gmb:index:{date}:location:{location}:ranking:all
+gmb:{tenant_id}:index:{date}:locations:{store_role}
+gmb:{tenant_id}:index:{date}:location:{location}:ranking:{store_role}
 ```
 
 Nota:
 
 ```txt
-Estos índices existen por compatibilidad CIDEF.
-El runtime multi-tenant debe partir desde Neon/placeResolver y luego leer snapshots Redis por place_id.
+Estos índices existen por compatibilidad/fallback.
+El runtime principal usa Neon.
+```
+
+## Separación runtime / ops
+
+```txt
+gmb_cidef = runtime/agente
+gmb_cidef_ops = captura/backfill/index/admin
+```
+
+Flujo de datos:
+
+```txt
+1. ops captura Google Places.
+2. ops guarda snapshot/reviews en Redis.
+3. ops hace backfill a place_daily_metrics.
+4. runtime responde desde Neon.
+5. Redis se usa para evidencia o fallback legacy.
 ```
 
 ## Regla importante
