@@ -1,304 +1,123 @@
 # Operations
 
-## Estado validado
-
-Validado al 2026-05-19:
+## Estado actual
 
-```txt
-snapshots: 727
-indexed_places: 727
-reviews: 2732
-indexed_reviews: 2732
-reviewed_places: 613
-locations: 61
-snapshots_updated: true
-reviews_updated: true
-updated: true
-```
+Desde 2026-05-22, la operación de datos quedó separada del runtime.
 
-Interpretación:
-
-```txt
-Light completo: 727 lugares.
-Reviews visibles: 2732.
-Lugares con reviews visibles: 613.
-Índices consistentes: sí.
-```
+- `gmb_cidef`: agente/runtime.
+- `gmb_cidef_ops`: captura, backfill, indexación y administración de datos.
 
-## Arquitectura operativa actual
+## Responsabilidad de esta repo
 
-```txt
-Neon:
-- places
-- place_daily_metrics
+Esta repo mantiene solo el runtime del agente:
 
-Redis:
-- snapshots crudos
-- reviews crudas
-- índices legacy
-```
+- `/api/agent/router`
+- `/api/query/compare`
+- contratos de consulta
+- response shape
+- ROM Custom GPT
+- documentación del runtime
 
-## Multi-tenant
+## Operación movida a `gmb_cidef_ops`
 
-El runtime ya soporta:
+Los siguientes endpoints ya no deben vivir en esta repo:
 
-```txt
-tenant_id
-industry
-ownership_group
-store_role
-brand
-location
-```
+- `/api/admin/backfill/place-daily-metrics`
+- `/api/gmb/index/build`
+- `/api/gmb/index/status`
 
-Regla operativa:
+## Infraestructura compartida
 
-```txt
-1 backend
-1 Neon
-1 Redis
-N tenants
-N Custom GPTs
-```
+Ambas repos usan la misma infraestructura:
 
-Recomendación actual:
+- Neon/Postgres
+- Upstash Redis
+- Google Places API
 
-```txt
-hardcodear tenant_id en el schema/action del Custom GPT.
-```
+## Modelo runtime
 
-No permitir que el usuario final cambie tenant_id libremente.
+- Neon es el plano principal de decisión/runtime.
+- Upstash queda para evidencia cruda e índices legacy.
+- Google Places se usa solo desde operaciones/captura.
 
-## place_daily_metrics
+## Modelo de ubicación
 
-Tabla Neon:
+- `normalized_location`: comuna o unidad mínima comparable.
+- `market_group`: ciudad o zona mayor.
+- `region`: región.
 
-```txt
-place_daily_metrics
-```
+Ejemplo:
 
-Objetivo:
+- `normalized_location = maipu`
+- `market_group = santiago`
+- `region = metropolitana`
 
-```txt
-resolver preguntas métricas rápidas sin recorrer snapshots Redis.
-```
+## Validaciones realizadas
 
-Campos mínimos:
+### Sodimac
 
-```txt
-tenant_id
-place_id
-captured_date
-rating
-review_count
-primary_type
-```
+Backfill ops validado para `2026-05-21`:
 
-## Backfill Neon metrics
+- `total_places = 161`
+- `inserted = 161`
+- `missing = 0`
+- `failed = 0`
 
-Endpoint:
+Runtime Neon validado:
 
-```txt
-POST /api/admin/backfill/place-daily-metrics
-```
+- `tenant_id = sodimac`
+- `source = neon_place_daily_metrics`
+- `engine = neon`
 
-Uso:
+Casos probados:
 
-```powershell
-Invoke-RestMethod `
-  "https://gmb-cidef.vercel.app/api/admin/backfill/place-daily-metrics?date=2026-05-19&tenant_id=cidef" `
-  -Method POST |
-  ConvertTo-Json -Depth 10
-```
+- ranking por marca
+- ranking por región
+- ranking por market_group
+- Santiago completo por marca
+- gap de Santiago contra competidores
 
-Resultado esperado:
+Resultado de gap Santiago:
 
-```txt
-inserted = 727
-missing = 0
-failed = 0
-```
+- `stores_count = 51`
+- `owned_count = 23`
+- `competitor_count = 28`
+- `gap_vs_top = 0.3`
 
-## Tipos de captura
+### CIDEF
 
-### 1. Captura barata
+Backfill ops validado para `2026-05-21`:
 
-Objetivo:
+- `total_places = 727`
+- `inserted = 727`
+- `missing = 0`
+- `failed = 0`
 
-```txt
-persistir snapshots diarios baratos
-```
+Runtime Neon validado:
 
-Usa:
+- `tenant_id = cidef`
+- `source = neon_place_daily_metrics`
+- `engine = neon`
+- `row_count > 0`
 
-```txt
-POST /api/gmb/capture/demo-next
-```
+## Pendientes reales
 
-Características:
+1. Mover captura a `gmb_cidef_ops`:
+   - `/api/gmb/capture/demo-next`
+   - `/api/gmb/capture/reviews-next`
 
-```txt
-lee place_ids desde Neon
-usa tenant_id
-no descarga reviews
-solo snapshots/métricas
-```
+2. Limpiar geografía CIDEF:
+   - hoy consulta bien por marca/rating.
+   - aún necesita `market_group` y `region` consistentes.
 
-### PowerShell
+3. Agregar backfill por lotes en ops:
+   - `limit`
+   - `offset`
 
-```powershell
-$base = "https://gmb-cidef.vercel.app"
-$done = $false
+4. Dejar Neon como default:
+   - `/api/agent/router`
+   - `/api/query/compare`
 
-while (-not $done) {
-  $r = Invoke-RestMethod "$base/api/gmb/capture/demo-next?limit=25" -Method POST
-  $result = $r.result
+## Regla operativa
 
-  Write-Host "date=$($result.captured_date) total=$($result.total) existing=$($result.existing) missing=$($result.missing) processed=$($result.processed) saved=$($result.saved) failed=$($result.failed) done=$($result.done)"
-
-  $done = $result.done
-
-  if (-not $done) {
-    Start-Sleep -Seconds 5
-  }
-}
-```
-
-Regla:
-
-```txt
-si missing=0 debe resolver rápido.
-```
-
-### 2. Captura cara
-
-Objetivo:
-
-```txt
-persistir evidencia textual visible
-```
-
-Usa:
-
-```txt
-POST /api/gmb/capture/reviews-next
-```
-
-Características:
-
-```txt
-lee place_ids desde Neon
-usa tenant_id
-guarda snapshots
-guarda reviews crudas en Redis
-```
-
-### PowerShell
-
-```powershell
-$base = "https://gmb-cidef.vercel.app"
-$done = $false
-
-while (-not $done) {
-  $r = Invoke-RestMethod "$base/api/gmb/capture/reviews-next?limit=5&confirm=true" -Method POST
-  $result = $r.result
-
-  Write-Host "date=$($result.captured_date) total=$($result.total) existing=$($result.existing) checked=$($result.checked) processed=$($result.processed) saved=$($result.saved) reviews_saved=$($result.reviews_saved) failed=$($result.failed) done=$($result.done)"
-
-  $done = $result.done
-
-  if (-not $done) {
-    Start-Sleep -Seconds 10
-  }
-}
-```
-
-## Build de índices
-
-```powershell
-Invoke-RestMethod "$base/api/gmb/index/build?date=2026-05-19" -Method POST | ConvertTo-Json -Depth 8
-```
-
-## Status de índices
-
-```powershell
-Invoke-RestMethod "$base/api/gmb/index/status?date=2026-05-19" -Method GET | ConvertTo-Json -Depth 8
-```
-
-## Runtime Neon
-
-Endpoint de validación:
-
-```txt
-POST /api/gmb/query/neon-test
-```
-
-Endpoint principal:
-
-```txt
-POST /api/query/compare?engine=neon
-```
-
-Resultado esperado:
-
-```txt
-source = neon_place_daily_metrics
-engine = neon
-```
-
-## Diseño objetivo evidencia
-
-Diseño actual:
-
-```txt
-Neon:
-- catálogo
-- métricas
-
-Redis:
-- evidencia textual cruda
-```
-
-Diseño siguiente:
-
-```txt
-review_map en Neon
--> selecciona review_keys relevantes
--> Redis devuelve solo reviews necesarias
-```
-
-Objetivo:
-
-```txt
-no recorrer miles de reviews en runtime.
-```
-
-## Reglas operativas
-
-```txt
-Google solo en captura.
-Runtime preferente contra Neon.
-Redis solo para evidencia y raw state.
-```
-
-```txt
-reviews requiere confirm=true.
-```
-
-```txt
-reviews no debe correr como cron diario completo.
-```
-
-```txt
-snapshot histórico sí debe existir todos los días.
-```
-
-```txt
-no repetir el mismo place dentro de la misma fecha.
-```
-
-## Costo real
-
-```txt
-llamadas a Google Places
-```
+El agente consulta. Ops mantiene datos. El backend resuelve tenant, filtros, métricas y evidencia.
