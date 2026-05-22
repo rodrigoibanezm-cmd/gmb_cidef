@@ -6,77 +6,104 @@ No es backlog de ideas.
 No es diseño pendiente.
 No es roadmap comercial.
 
-## 1. Temporal lento
+## Prioridad actual
+
+Después de separar `runtime` y `ops`, la prioridad real cambió.
+
+Orden actual:
+
+```txt
+1. Neon default
+2. client_config / tenant ownership
+3. limpiar endpoints legacy
+4. fallback/index discipline
+5. temporal avanzado
+```
+
+No tocar todavía:
+
+```txt
+shape=minimal
+```
+
+No hay dolor real suficiente.
+
+---
+
+## 1. Neon no es default todavía
 
 Estado:
 
 ```txt
-DEUDA TÉCNICA
+DEUDA TÉCNICA PRIORITARIA
 ```
 
 Problema:
 
 ```txt
-scope=temporal hoy compara dos fechas ejecutando lecturas por ubicación.
+/api/query/compare y /api/agent/router todavía pueden depender de ?engine=neon para usar el motor validado.
 ```
 
 Impacto:
 
 ```txt
-alta latencia
-muchas lecturas Upstash
-mala experiencia si crece el universo de places
+riesgo de que runtime use motor legacy por omisión
+confusión operativa
+inconsistencia entre lo validado y lo usado por el agente
 ```
 
-Causa:
+Contexto:
 
 ```txt
-no existe índice compacto temporal precomputado por fecha
+Neon ya fue validado con Sodimac y CIDEF.
 ```
 
 Acción sugerida:
 
 ```txt
-crear resumen compacto por fecha/rol para reducir lecturas
+dejar engine=neon como default en /api/query/compare y /api/agent/router
+mantener engine=redis solo como override explícito/debug
 ```
 
-Ejemplo futuro:
-
-```txt
-gmb:index:{date}:location_summaries:{role}
-```
-
-## 2. Temporal limitado a ubicación
+## 2. Normalización ownership hardcodeada / falta client_config
 
 Estado:
 
 ```txt
-DEUDA TÉCNICA
+DEUDA TÉCNICA ESTRUCTURAL
 ```
 
 Problema:
 
 ```txt
-scope=temporal funciona como primera capa por ubicación.
-No soporta correctamente brand/operator/store_role temporal.
+la migración actual normaliza cidef -> own y el resto -> competitor
 ```
 
 Impacto:
 
 ```txt
-preguntas temporales por marca u operador quedan fuera o débiles
+no sirve para multi-tenant real
+acopla lógica de cliente al sistema
+impide que el query engine siga siendo agnóstico a clientes
 ```
 
 Causa:
 
 ```txt
-executeTemporal compara summaries construidos por location
+ownership/own_values todavía no viven en una configuración de cliente
 ```
 
 Acción sugerida:
 
 ```txt
-crear temporal agrupado por dimensión o reutilizar executeIntra con snapshot por fecha
+mover ownership/own_values/default_store_role/default_shape/allowed_intents a client_config
+```
+
+Regla:
+
+```txt
+el tenant no debe decidir seguridad
+el tenant solo puede ser routing operativo hasta que exista autenticación real
 ```
 
 ## 3. Endpoints legacy mezclados con endpoints nuevos
@@ -97,7 +124,7 @@ Impacto:
 
 ```txt
 confusión operativa
-riesgo de usar endpoints viejos en runtime del agente
+riesgo de usar endpoints viejos por error
 ```
 
 Endpoints legacy:
@@ -110,10 +137,96 @@ GET /api/compare
 Acción sugerida:
 
 ```txt
-mantener solo como compatibilidad/debug o moverlos explícitamente a legacy
+marcarlos como deprecated
+moverlos explícitamente a legacy/debug
+o eliminarlos si ya no tienen uso operativo
 ```
 
-## 4. Mezcla histórica de keys de reviews
+Nota:
+
+```txt
+después de separar runtime y ops, esta deuda bajó de prioridad
+```
+
+## 4. Índices por fecha requieren disciplina operativa / fallback
+
+Estado:
+
+```txt
+DEUDA OPERATIVA
+```
+
+Problema:
+
+```txt
+las queries Redis/legacy dependen de índices diarios consistentes
+```
+
+Impacto:
+
+```txt
+si una fecha no está indexada o fue indexada con reglas antiguas, algunas queries devuelven rows=[]
+```
+
+Acción sugerida:
+
+```txt
+mantener build/status como paso obligatorio después de captura
+considerar último índice válido como fallback futuro
+```
+
+Nota:
+
+```txt
+si Neon queda como default, el riesgo baja para runtime principal
+```
+
+## 5. Temporal lento y limitado
+
+Estado:
+
+```txt
+DEUDA TÉCNICA NO BLOQUEANTE
+```
+
+Problema:
+
+```txt
+scope=temporal hoy compara dos fechas ejecutando lecturas por ubicación
+scope=temporal funciona como primera capa por ubicación
+no soporta correctamente brand/operator/store_role temporal
+```
+
+Impacto:
+
+```txt
+alta latencia
+muchas lecturas Upstash
+preguntas temporales por marca u operador quedan fuera o débiles
+```
+
+Causa:
+
+```txt
+no existe índice compacto temporal precomputado por fecha
+executeTemporal compara summaries construidos por location
+```
+
+Acción sugerida:
+
+```txt
+crear temporal agrupado por dimensión
+o reutilizar executeIntra con snapshot por fecha
+```
+
+No bloquea:
+
+```txt
+piloto actual
+runtime principal basado en ranking/gap actual
+```
+
+## 6. Mezcla histórica de keys de reviews
 
 Estado:
 
@@ -147,34 +260,7 @@ Acción sugerida:
 migrar o limpiar keys históricas cuando el modelo esté estable
 ```
 
-## 5. Normalización ownership hardcodeada
-
-Estado:
-
-```txt
-DEUDA TÉCNICA
-```
-
-Problema:
-
-```txt
-la migración actual normaliza cidef -> own y el resto -> competitor
-```
-
-Impacto:
-
-```txt
-no sirve para multi-tenant real
-acopla lógica de cliente al sistema
-```
-
-Acción sugerida:
-
-```txt
-mover ownership/own_values a client_config cuando se diseñe multi-tenant
-```
-
-## 6. Shape compact puede seguir pesando demasiado
+## 7. Shape compact puede seguir pesando demasiado
 
 Estado:
 
@@ -204,29 +290,4 @@ evaluar shape=minimal si compact no basta
 
 No implementar todavía.
 
-## 7. Índices por fecha requieren disciplina operativa
-
-Estado:
-
-```txt
-DEUDA OPERATIVA
-```
-
-Problema:
-
-```txt
-las queries dependen de índices diarios consistentes
-```
-
-Impacto:
-
-```txt
-si una fecha no está indexada o fue indexada con reglas antiguas, algunas queries devuelven rows=[]
-```
-
-Acción sugerida:
-
-```txt
-mantener build/status como paso obligatorio después de captura
-considerar último índice válido como fallback futuro
-```
+No hay dolor real suficiente.
