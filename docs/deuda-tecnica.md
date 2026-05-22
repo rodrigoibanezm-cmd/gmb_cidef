@@ -6,17 +6,27 @@ No es backlog de ideas.
 No es diseño pendiente.
 No es roadmap comercial.
 
-## Prioridad actual
+## Estado actual
 
-Después de separar `runtime` y `ops`, la prioridad real cambió.
+Neon ya es default runtime.
 
-Orden actual:
+Resuelto:
 
 ```txt
-1. Neon default
-2. client_config / tenant ownership
-3. limpiar endpoints legacy
-4. fallback/index discipline
+/api/query/compare usa Neon por default
+/api/agent/router usa Neon
+Redis queda como fallback explícito con ?engine=redis
+shape=compact soporta agregados
+captura/backfill/index viven en gmb_cidef_ops
+```
+
+## Prioridad actual
+
+```txt
+1. client_config / tenant ownership
+2. limpiar endpoints legacy
+3. limpiar geografía CIDEF
+4. backfill por lotes en ops
 5. temporal avanzado
 ```
 
@@ -30,42 +40,7 @@ No hay dolor real suficiente.
 
 ---
 
-## 1. Neon no es default todavía
-
-Estado:
-
-```txt
-DEUDA TÉCNICA PRIORITARIA
-```
-
-Problema:
-
-```txt
-/api/query/compare y /api/agent/router todavía pueden depender de ?engine=neon para usar el motor validado.
-```
-
-Impacto:
-
-```txt
-riesgo de que runtime use motor legacy por omisión
-confusión operativa
-inconsistencia entre lo validado y lo usado por el agente
-```
-
-Contexto:
-
-```txt
-Neon ya fue validado con Sodimac y CIDEF.
-```
-
-Acción sugerida:
-
-```txt
-dejar engine=neon como default en /api/query/compare y /api/agent/router
-mantener engine=redis solo como override explícito/debug
-```
-
-## 2. Normalización ownership hardcodeada / falta client_config
+## 1. Normalización ownership hardcodeada / falta client_config
 
 Estado:
 
@@ -76,21 +51,15 @@ DEUDA TÉCNICA ESTRUCTURAL
 Problema:
 
 ```txt
-la migración actual normaliza cidef -> own y el resto -> competitor
+la lógica de ownership/own_values todavía no vive en una configuración formal de cliente
 ```
 
 Impacto:
 
 ```txt
 no sirve para multi-tenant real
-acopla lógica de cliente al sistema
-impide que el query engine siga siendo agnóstico a clientes
-```
-
-Causa:
-
-```txt
-ownership/own_values todavía no viven en una configuración de cliente
+acopla reglas de cliente al runtime
+impide escalar tenants con reglas distintas
 ```
 
 Acción sugerida:
@@ -106,7 +75,7 @@ el tenant no debe decidir seguridad
 el tenant solo puede ser routing operativo hasta que exista autenticación real
 ```
 
-## 3. Endpoints legacy mezclados con endpoints nuevos
+## 2. Endpoints legacy mezclados con endpoints nuevos
 
 Estado:
 
@@ -142,13 +111,33 @@ moverlos explícitamente a legacy/debug
 o eliminarlos si ya no tienen uso operativo
 ```
 
-Nota:
+## 3. Geografía CIDEF incompleta
+
+Estado:
 
 ```txt
-después de separar runtime y ops, esta deuda bajó de prioridad
+DEUDA DE CATÁLOGO
 ```
 
-## 4. Índices por fecha requieren disciplina operativa / fallback
+Problema:
+
+```txt
+CIDEF consulta bien por marca/rating, pero todavía tiene region=unknown y market_group demasiado granular en varios places
+```
+
+Impacto:
+
+```txt
+preguntas por ciudad/región quedan débiles para CIDEF
+```
+
+Acción sugerida:
+
+```txt
+normalizar normalized_location, market_group y region para CIDEF igual que se hizo con Sodimac
+```
+
+## 4. Backfill por lotes en ops
 
 Estado:
 
@@ -159,26 +148,19 @@ DEUDA OPERATIVA
 Problema:
 
 ```txt
-las queries Redis/legacy dependen de índices diarios consistentes
+CIDEF tiene 727 places y el backfill completo puede demorarse
 ```
 
 Impacto:
 
 ```txt
-si una fecha no está indexada o fue indexada con reglas antiguas, algunas queries devuelven rows=[]
+riesgo de timeout o latencia alta en Vercel
 ```
 
 Acción sugerida:
 
 ```txt
-mantener build/status como paso obligatorio después de captura
-considerar último índice válido como fallback futuro
-```
-
-Nota:
-
-```txt
-si Neon queda como default, el riesgo baja para runtime principal
+agregar limit y offset a /api/admin/backfill/place-daily-metrics en gmb_cidef_ops
 ```
 
 ## 5. Temporal lento y limitado
@@ -192,38 +174,27 @@ DEUDA TÉCNICA NO BLOQUEANTE
 Problema:
 
 ```txt
-scope=temporal hoy compara dos fechas ejecutando lecturas por ubicación
-scope=temporal funciona como primera capa por ubicación
-no soporta correctamente brand/operator/store_role temporal
+scope=temporal sigue limitado y no soporta bien brand/operator/store_role/region/market_group
 ```
 
 Impacto:
 
 ```txt
 alta latencia
-muchas lecturas Upstash
-preguntas temporales por marca u operador quedan fuera o débiles
-```
-
-Causa:
-
-```txt
-no existe índice compacto temporal precomputado por fecha
-executeTemporal compara summaries construidos por location
+preguntas temporales agregadas quedan débiles
 ```
 
 Acción sugerida:
 
 ```txt
-crear temporal agrupado por dimensión
-o reutilizar executeIntra con snapshot por fecha
+crear temporal agrupado por dimensión usando place_daily_metrics
 ```
 
 No bloquea:
 
 ```txt
 piloto actual
-runtime principal basado en ranking/gap actual
+ranking/gap actual basado en Neon
 ```
 
 ## 6. Mezcla histórica de keys de reviews
@@ -247,47 +218,22 @@ gmb:review:{place_id}:{review_hash}
 gmb:review_seen:{date}:{place_id}:{review_hash}
 ```
 
-Impacto:
-
-```txt
-complejidad en lectura de evidencia
-riesgo de inconsistencias futuras
-```
-
 Acción sugerida:
 
 ```txt
 migrar o limpiar keys históricas cuando el modelo esté estable
 ```
 
-## 7. Shape compact puede seguir pesando demasiado
+## 7. Shape minimal
 
 Estado:
 
 ```txt
-DEUDA TÉCNICA MENOR
+NO HACER TODAVÍA
 ```
 
-Problema:
+Contexto:
 
 ```txt
-shape=compact reduce ruido, pero aún puede cargar muchas reviews largas
+shape=compact ya fue corregido para agregados y no hay dolor real suficiente
 ```
-
-Impacto:
-
-```txt
-más tokens de entrada para el LLM
-más latencia
-más costo
-```
-
-Acción sugerida:
-
-```txt
-evaluar shape=minimal si compact no basta
-```
-
-No implementar todavía.
-
-No hay dolor real suficiente.
