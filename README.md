@@ -42,8 +42,8 @@ gmb_cidef_ops
 ```txt
 LLM hace semántica.
 Backend entrega datos, métricas, evidencia y forma del JSON.
-Neon es el plano de decisión/runtime.
-Upstash queda como evidencia cruda e índices legacy.
+Neon es el plano default de decisión/runtime.
+Upstash queda como evidencia cruda y fallback legacy explícito.
 Google Places solo se usa en captura desde ops.
 ```
 
@@ -53,16 +53,35 @@ Google Places solo se usa en captura desde ops.
 POST /api/agent/router
 ```
 
+Estado:
+
+```txt
+usa Neon por default vía compare_query_neon
+```
+
 ## Endpoint técnico de consulta
 
 ```txt
 POST /api/query/compare
 ```
 
-Uso recomendado:
+Uso normal:
 
 ```txt
-engine=neon
+POST /api/query/compare
+```
+
+Uso legacy/debug:
+
+```txt
+POST /api/query/compare?engine=redis
+```
+
+Respuesta esperada runtime:
+
+```txt
+engine = neon
+source = neon_place_daily_metrics
 ```
 
 ## Contrato importante
@@ -77,6 +96,8 @@ Uso recomendado:
 shape="compact" -> runtime LLM
 shape="raw" -> debug/auditoría
 ```
+
+`shape=compact` soporta agregados por brand, region, market_group, store_role y operator.
 
 ## Modelo de ubicación
 
@@ -98,6 +119,16 @@ region = metropolitana
 normalized_location = concepcion
 market_group = gran_concepcion
 region = biobio
+```
+
+## Estado validado
+
+```txt
+Sodimac runtime Neon OK
+Sodimac region/market_group OK
+Sodimac gap Santiago OK
+CIDEF runtime Neon OK
+Captura/backfill/indexación movidos a ops OK
 ```
 
 ## ROM Custom GPT
