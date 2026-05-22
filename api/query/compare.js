@@ -7,8 +7,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const engine = req.query.engine || req.body?.engine || "redis";
-    const executor = engine === "neon" ? executeCompareQueryNeon : executeCompareQuery;
+    const engine = req.query.engine || req.body?.engine || "neon";
+    const executor = engine === "redis" ? executeCompareQuery : executeCompareQueryNeon;
     const result = await executor(req.body || {});
 
     return res.status(200).json({
