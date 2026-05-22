@@ -25,6 +25,8 @@ Los siguientes endpoints ya no deben vivir en esta repo:
 - `/api/admin/backfill/place-daily-metrics`
 - `/api/gmb/index/build`
 - `/api/gmb/index/status`
+- `/api/gmb/capture/demo-next`
+- `/api/gmb/capture/reviews-next`
 
 ## Infraestructura compartida
 
@@ -37,6 +39,9 @@ Ambas repos usan la misma infraestructura:
 ## Modelo runtime
 
 - Neon es el plano principal de decisión/runtime.
+- `/api/query/compare` usa Neon por default.
+- Redis queda como legacy/fallback explícito con `?engine=redis`.
+- `/api/agent/router` usa Neon vía `executeCompareQueryNeon`.
 - Upstash queda para evidencia cruda e índices legacy.
 - Google Places se usa solo desde operaciones/captura.
 
@@ -100,11 +105,43 @@ Runtime Neon validado:
 - `engine = neon`
 - `row_count > 0`
 
+### Pruebas finales runtime
+
+`POST /api/query/compare` sin `?engine=neon` validado:
+
+- `engine = neon`
+- `source = neon_place_daily_metrics`
+- `row_count > 0`
+
+`POST /api/agent/router` validado:
+
+- `engine = compare_query_neon`
+- `shape = compact`
+- `source = neon_place_daily_metrics`
+- `row_count > 0`
+
+`shape=compact` fue corregido para agregados. Soporta:
+
+- `brand`
+- `region`
+- `market_group`
+- `store_role`
+- `operator`
+
+Y conserva:
+
+- `count`
+- `avg_value`
+- `best`
+- `worst`
+
 ## Pendientes reales
 
-1. Mover captura a `gmb_cidef_ops`:
-   - `/api/gmb/capture/demo-next`
-   - `/api/gmb/capture/reviews-next`
+1. Limpiar librerías legacy de captura en runtime si no tienen imports activos:
+   - `lib/gmb/capturePlacesDemo.js`
+   - `lib/gmb/capturePlacesReviews.js`
+   - `lib/gmb/placesPostgres.js`
+   - `lib/gmb/reviews.js`
 
 2. Limpiar geografía CIDEF:
    - hoy consulta bien por marca/rating.
@@ -114,9 +151,14 @@ Runtime Neon validado:
    - `limit`
    - `offset`
 
-4. Dejar Neon como default:
-   - `/api/agent/router`
-   - `/api/query/compare`
+4. Resolver client config / ownership:
+   - no depender de reglas hardcodeadas.
+   - preparar multi-tenant real.
+
+5. Temporal avanzado:
+   - delta por región.
+   - delta por market_group.
+   - delta por marca.
 
 ## Regla operativa
 
