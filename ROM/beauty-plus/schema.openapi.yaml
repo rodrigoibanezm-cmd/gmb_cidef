@@ -1,0 +1,235 @@
+openapi: 3.1.0
+info:
+  title: Beauty Plus Reputation Agent Router
+  version: 1.0.0
+  description: Action schema for the Beauty Plus reputation agent. Tenant is fixed to beauty_plus.
+
+servers:
+  - url: https://gmb-cidef.vercel.app
+
+paths:
+  /api/agent/router:
+    post:
+      operationId: routeBeautyPlusIntent
+      summary: Route a Beauty Plus reputation analysis request
+      description: Routes structured reputation intents over Beauty Plus Google Maps reputation data. The tenant is fixed by schema.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BeautyPlusAgentRouterRequest"
+      responses:
+        "200":
+          description: Routed query result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRouterResponse"
+
+components:
+  schemas:
+    BeautyPlusAgentRouterRequest:
+      type: object
+      required:
+        - tenant_id
+        - intent
+      properties:
+        tenant_id:
+          type: string
+          const: beauty_plus
+          default: beauty_plus
+          description: Fixed tenant. Do not change.
+        intent:
+          type: string
+          enum:
+            - ranking
+            - gap
+            - temporal
+            - evidence
+            - action
+            - cause
+        params:
+          $ref: "#/components/schemas/AgentRouterParams"
+
+    AgentRouterParams:
+      type: object
+      properties:
+        date:
+          type: string
+          description: Target date in YYYY-MM-DD format. If omitted, backend default applies.
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        date_from:
+          type: string
+          description: Start date for temporal comparisons in YYYY-MM-DD format.
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        date_to:
+          type: string
+          description: End date for temporal comparisons in YYYY-MM-DD format.
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        scope:
+          type: string
+          enum:
+            - intra
+            - extra
+            - temporal
+        dimension:
+          type: string
+          enum:
+            - location
+            - brand
+            - operator
+            - store_role
+          description: Aggregation dimension. Default is location.
+        metric:
+          type: string
+          enum:
+            - rating
+            - reviews_count
+            - gap_vs_top
+            - position
+            - delta_rating
+            - delta_reviews_count
+            - delta_gap_vs_top
+            - delta_position
+        filters:
+          $ref: "#/components/schemas/QueryFilters"
+        output:
+          $ref: "#/components/schemas/QueryOutput"
+
+    QueryFilters:
+      type: object
+      properties:
+        location:
+          type: string
+          description: Optional normalized location filter, for example la_florida, las_condes, providencia, vina_del_mar.
+        market_group:
+          type: string
+          description: Optional city or market filter, for example santiago, vina_del_mar, gran_concepcion.
+        region:
+          type: string
+          description: Optional normalized region filter, for example metropolitana, valparaiso, los_lagos.
+        ownership_group:
+          type: string
+          enum:
+            - own
+            - competitor
+            - all
+          default: own
+          description: Relative ownership role inside the Beauty Plus tenant. Use own for Beauty Plus stores; competitor for DBS, Blush-Bar, Sokobox.
+        brand:
+          type: string
+          enum:
+            - beauty_plus
+            - dbs
+            - blush_bar
+            - sokobox
+          description: Optional brand filter.
+        store_role:
+          type: string
+          enum:
+            - store
+            - all
+          default: store
+          description: Beauty retail store role. Default is store.
+        valid_only:
+          type: boolean
+          description: Whether to keep only statistically valid confidence rows. Usually omit; backend defaults apply.
+
+    QueryOutput:
+      type: object
+      properties:
+        shape:
+          type: string
+          enum:
+            - compact
+            - raw
+          default: compact
+        max_rows:
+          type: integer
+          minimum: 1
+          maximum: 200
+        include_evidence:
+          type: boolean
+        evidence_per_row:
+          type: integer
+          minimum: 1
+          maximum: 10
+        sort:
+          type: string
+          enum:
+            - asc
+            - desc
+
+    AgentRouterResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        intent:
+          type: string
+        engine:
+          type: string
+        semantic_required:
+          type: boolean
+        shape:
+          type: string
+        result:
+          type: object
+          properties:
+            ok:
+              type: boolean
+            query:
+              type: object
+            rows:
+              type: array
+              items:
+                $ref: "#/components/schemas/CompactRow"
+            row_count:
+              type: integer
+            source:
+              type: string
+
+    CompactRow:
+      type: object
+      properties:
+        location:
+          type: string
+        rating:
+          type: number
+        reviews:
+          type: integer
+        confidence:
+          type: string
+          enum:
+            - baja
+            - media
+            - alta
+        gap_vs_top:
+          type: number
+        position:
+          type: integer
+        top_brand:
+          type: string
+        top_name:
+          type: string
+        top_rating:
+          type: number
+        top_reviews:
+          type: integer
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/Evidence"
+
+    Evidence:
+      type: object
+      properties:
+        rating:
+          type: number
+        text:
+          type: string
+        author:
+          type: string
+        review_date:
+          type: string
