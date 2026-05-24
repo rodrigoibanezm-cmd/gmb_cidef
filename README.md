@@ -25,10 +25,9 @@ documentación del agente/runtime
 
 ```txt
 captura Google Places
-backfill Neon
-indexación Redis
 endpoints admin/debug operativos
 cron jobs
+carga de snapshots/reviews en Neon
 ```
 
 Eso vive en:
@@ -42,9 +41,9 @@ gmb_cidef_ops
 ```txt
 LLM hace semántica.
 Backend entrega datos, métricas, evidencia y forma del JSON.
-Neon es el plano default de decisión/runtime.
-Upstash queda como evidencia cruda y fallback legacy explícito.
+Neon/Postgres es el único plano de decisión/runtime.
 Google Places solo se usa en captura desde ops.
+Redis/Upstash no forma parte del runtime.
 ```
 
 ## Endpoint principal del agente
@@ -56,7 +55,7 @@ POST /api/agent/router
 Estado:
 
 ```txt
-usa Neon por default vía compare_query_neon
+usa Neon vía compare_query_neon
 ```
 
 ## Endpoint técnico de consulta
@@ -65,16 +64,12 @@ usa Neon por default vía compare_query_neon
 POST /api/query/compare
 ```
 
-Uso normal:
+Reglas:
 
 ```txt
-POST /api/query/compare
-```
-
-Uso legacy/debug:
-
-```txt
-POST /api/query/compare?engine=redis
+tenant_id es obligatorio
+no existe engine=redis
+no existe fallback Redis
 ```
 
 Respuesta esperada runtime:
@@ -107,28 +102,15 @@ market_group = ciudad / zona mayor
 region = región
 ```
 
-Ejemplos:
+## Estado actual
 
 ```txt
-normalized_location = maipu
-market_group = santiago
-region = metropolitana
-```
-
-```txt
-normalized_location = concepcion
-market_group = gran_concepcion
-region = biobio
-```
-
-## Estado validado
-
-```txt
-Sodimac runtime Neon OK
-Sodimac region/market_group OK
-Sodimac gap Santiago OK
-CIDEF runtime Neon OK
-Captura/backfill/indexación movidos a ops OK
+runtime Neon-only
+query compare Neon-only
+evidencia desde Neon place_reviews
+tenant_id obligatorio
+Google Places fuera del runtime
+Redis/Upstash eliminado del runtime
 ```
 
 ## ROM Custom GPT
