@@ -10,10 +10,9 @@ El agente nunca consulta Google Places en runtime.
 Arquitectura actual:
 
 ```txt
-Neon/Postgres = catálogo maestro + métricas runtime.
-Upstash/Redis = evidencia cruda + índices legacy/fallback.
+Neon/Postgres = catálogo maestro + métricas + evidencia runtime.
 gmb_cidef = runtime/agente.
-gmb_cidef_ops = captura/backfill/index/admin.
+gmb_cidef_ops = captura/admin.
 Backend = cálculo determinístico.
 LLM = semántica y narrativa.
 ```
@@ -23,31 +22,19 @@ LLM = semántica y narrativa.
 ```txt
 1. agent/router o query/compare recibe tenant + filtros.
 2. Backend normaliza contrato.
-3. Backend lee places + place_daily_metrics desde Neon.
+3. Backend lee places + place_daily_metrics + place_reviews desde Neon.
 4. Backend calcula ranking/gap/agregados.
 5. Backend aplica shape si corresponde.
 6. Backend devuelve JSON.
 7. LLM interpreta y redacta.
 ```
 
-Redis no es el runtime principal.
-
-Redis queda para:
-
-```txt
-evidencia textual cruda
-reviews
-snapshots históricos
-índices legacy/fallback
-```
-
 ## Flujo operativo separado
 
 ```txt
 1. gmb_cidef_ops captura Google Places.
-2. gmb_cidef_ops guarda snapshots/reviews en Redis.
-3. gmb_cidef_ops hace backfill a Neon place_daily_metrics.
-4. gmb_cidef usa Neon para responder preguntas.
+2. gmb_cidef_ops guarda snapshots/reviews en Neon.
+3. gmb_cidef usa Neon para responder preguntas.
 ```
 
 ## Frontera LLM / backend
@@ -66,28 +53,6 @@ Backend = forma del JSON.
 LLM = forma narrativa.
 ```
 
-El backend debe:
-
-```txt
-recibir una query estructurada
-validar contrato
-resolver tenant y universo operativo
-consultar métricas persistidas
-calcular métricas
-aplicar forma de respuesta solicitada: raw | compact
-```
-
-El LLM debe:
-
-```txt
-entender la pregunta
-clasificar intención
-pedir la forma de respuesta necesaria
-interpretar evidencia
-definir causa, prioridad y acción cuando corresponda
-redactar la salida ejecutiva
-```
-
 ## Reglas clave
 
 ```txt
@@ -98,8 +63,6 @@ El backend decide rutas y filtros.
 El backend calcula métricas.
 El backend da forma al JSON.
 ```
-
-El LLM nunca debe construir keys Redis.
 
 El backend nunca debe decidir:
 
@@ -117,6 +80,7 @@ La resolución runtime parte desde Neon:
 ```txt
 places
 place_daily_metrics
+place_reviews
 ```
 
 Filtros actuales:
@@ -131,21 +95,6 @@ store_role
 ownership_group
 brand
 status=keep
-```
-
-## Normalización actual
-
-Ownership normalizado:
-
-```txt
-own
-competitor
-```
-
-Nota:
-
-```txt
-Para multi-tenant real, ownership/own_values/defaults deben salir de client_config.
 ```
 
 ## Modelo de ubicación
@@ -165,9 +114,9 @@ La mejor solución es la más simple.
 Para esta etapa:
 
 ```txt
-runtime principal en Neon
+runtime Neon-only
 captura separada en ops
-Redis solo para evidencia/fallback legacy
+sin Redis/Upstash
 cálculo determinístico en backend
 ```
 
