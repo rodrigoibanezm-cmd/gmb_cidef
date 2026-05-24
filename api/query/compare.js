@@ -1,4 +1,3 @@
-import { executeCompareQuery } from "../../lib/gmb/queryExecutor.js";
 import { executeCompareQueryNeon } from "../../lib/gmb/queryExecutorNeon.js";
 
 export default async function handler(req, res) {
@@ -7,13 +6,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const engine = req.query.engine || req.body?.engine || "neon";
-    const executor = engine === "redis" ? executeCompareQuery : executeCompareQueryNeon;
-    const result = await executor(req.body || {});
+    const result = await executeCompareQueryNeon(req.body || {});
 
     return res.status(200).json({
       ...result,
-      engine,
+      engine: "neon",
     });
   } catch (error) {
     console.error("compare query failed", error);
