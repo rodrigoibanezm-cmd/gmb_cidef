@@ -6,17 +6,9 @@
 
 Estado actual:
 
-- Neon es el motor default.
-- Redis queda solo como fallback legacy explícito.
-- El uso normal ya no requiere `?engine=neon`.
-
-Uso normal:
-
-`POST /api/query/compare`
-
-Uso legacy/debug:
-
-`POST /api/query/compare?engine=redis`
+- Neon es el único motor runtime.
+- No existe fallback Redis.
+- tenant_id es obligatorio.
 
 Respuesta esperada:
 
@@ -35,7 +27,7 @@ mediante:
 
 `lib/gmb/responseShape.js`
 
-`shape=compact` ya soporta agregados por:
+`shape=compact` soporta agregados por:
 
 - `brand`
 - `region`
@@ -46,32 +38,32 @@ mediante:
 ## Archivos principales
 
 - `lib/gmb/queryContract.js`
-- `lib/gmb/queryExecutorNeon.js` — runtime default Neon
-- `lib/gmb/metricsReader.js` — lee `places` + `place_daily_metrics`
-- `lib/gmb/queryExecutor.js` — fallback legacy Redis
+- `lib/gmb/queryExecutorNeon.js`
+- `lib/gmb/metricsReader.js`
+- `lib/gmb/evidence.js`
 
 ## Runtime Neon
 
-El motor Neon parte desde:
+El motor runtime parte desde:
 
 - `places`
 - `place_daily_metrics`
-
-No parte desde índices Redis.
+- `place_reviews`
 
 Flujo:
 
 1. normaliza contrato.
-2. lee universo desde Neon usando tenant/filtros.
-3. une `places` + `place_daily_metrics`.
+2. valida tenant.
+3. lee universo desde Neon usando tenant/filtros.
 4. calcula ranking/gap en backend.
-5. devuelve JSON raw.
+5. adjunta evidencia desde Neon.
+6. devuelve JSON raw.
 
 Filtros soportados:
 
 - `tenant_id`
 - `industry`
-- `location` / `normalized_location`
+- `location`
 - `market_group`
 - `region`
 - `store_role`
@@ -86,11 +78,6 @@ Filtros soportados:
 - `intra`
 - `extra`
 - `temporal`
-
-Estado actual:
-
-- ranking/gap usan Neon por default.
-- temporal sigue limitado y debe mejorarse sobre `place_daily_metrics`.
 
 ### dimension
 
@@ -137,33 +124,21 @@ Default técnico actual:
 
 `output.shape` no pertenece al query engine técnico; pertenece al agent router.
 
-## Validaciones realizadas
-
-Validado con:
-
-- `POST /api/query/compare`
-- `POST /api/agent/router`
-
-Casos validados:
-
-- Sodimac por marca.
-- Sodimac por región.
-- Sodimac por market_group.
-- Santiago por marca.
-- Santiago gap_vs_top.
-- CIDEF por marca.
-
 ## Evidencia
 
-El LLM nunca pide keys Redis.
+El LLM nunca pide keys.
 
-Debe pedir `output.include_evidence = true`.
+Debe pedir:
+
+```txt
+output.include_evidence = true
+```
 
 Estado actual:
 
-- evidencia sigue leyendo Redis.
-- métricas/ranking/gap salen de Neon.
-- diseño objetivo: `review_map` en Neon para seleccionar review keys y traer texto crudo desde Redis.
+```txt
+evidencia sale desde place_reviews en Neon
+```
 
 ## Temporal
 
@@ -177,7 +152,11 @@ Pendiente:
 - temporal por region.
 - temporal por market_group.
 
-Objetivo: calcular temporal usando `place_daily_metrics` en Neon.
+Objetivo:
+
+```txt
+calcular temporal usando place_daily_metrics en Neon
+```
 
 ## delta_position
 
