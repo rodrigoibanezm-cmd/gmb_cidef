@@ -3,8 +3,7 @@
 ## Principio actual
 
 ```txt
-Neon/Postgres = catálogo maestro + métricas runtime.
-Upstash/Redis = evidencia cruda + snapshots + índices legacy/fallback.
+Neon/Postgres = catálogo maestro + métricas + evidencia runtime.
 ```
 
 ## Neon / Postgres
@@ -54,14 +53,6 @@ Regla:
 status=keep define los places activos para runtime y captura.
 ```
 
-Modelo de ubicación:
-
-```txt
-normalized_location = comuna / unidad mínima comparable
-market_group = ciudad / zona mayor
-region = región
-```
-
 ### Tabla place_daily_metrics
 
 ```txt
@@ -71,7 +62,7 @@ place_daily_metrics
 Representa:
 
 ```txt
-métrica diaria compacta para runtime Neon.
+métrica diaria compacta para runtime.
 ```
 
 Uso:
@@ -97,143 +88,62 @@ updated_at
 Regla:
 
 ```txt
-/api/query/compare usa Neon por default leyendo places + place_daily_metrics.
+/api/query/compare usa Neon exclusivamente.
 ```
 
-## Redis / Upstash
-
-Redis ya no es el runtime principal.
-
-Uso actual:
+### Tabla place_reviews
 
 ```txt
-snapshots crudos
-reviews crudas
-evidencia textual
-índices legacy/fallback
-```
-
-## Redis legacy: base clasificada
-
-```txt
-gmb:classified:v1
-```
-
-Estado:
-
-```txt
-legacy / fuente histórica de migración.
-```
-
-Ya no debe ser la fuente maestra para captura ni runtime.
-
-## Snapshot diario
-
-Formato multi-tenant actual:
-
-```txt
-gmb:{tenant_id}:snapshot:{date}:{place_id}
+place_reviews
 ```
 
 Representa:
 
 ```txt
+evidencia textual runtime.
+```
+
+Campos principales:
+
+```txt
+tenant_id
+place_id
+review_hash
+captured_date
+review_date
 rating
-review_count
-estado observado ese día
-raw mínimo de Google Places
+text
+author
+language
+source
+raw
+updated_at
 ```
 
-Fecha:
+Uso:
 
 ```txt
-captured_date usa America/Santiago.
-```
-
-## Review única global por tenant
-
-```txt
-gmb:{tenant_id}:review:{place_id}:{review_hash}
-```
-
-`review_hash`:
-
-```txt
-place_id + author + rating + publishTime
-```
-
-## Marca de vista diaria
-
-```txt
-gmb:{tenant_id}:review_seen:{date}:{place_id}:{review_hash}
-```
-
-Representa:
-
-```txt
-la review fue vista ese día
-```
-
-## Índices diarios Redis legacy/fallback
-
-### snapshots
-
-```txt
-gmb:{tenant_id}:index:{date}:snapshot_keys
-```
-
-### place ids capturados
-
-```txt
-gmb:{tenant_id}:index:{date}:place_ids
-```
-
-### reviews
-
-```txt
-gmb:{tenant_id}:index:{date}:review_keys
-```
-
-### reviews por place
-
-```txt
-gmb:{tenant_id}:index:{date}:place:{place_id}:review_keys
-```
-
-## Rankings Redis legacy
-
-```txt
-gmb:{tenant_id}:index:{date}:locations:{store_role}
-gmb:{tenant_id}:index:{date}:location:{location}:ranking:{store_role}
-```
-
-Nota:
-
-```txt
-Estos índices existen por compatibilidad/fallback.
-El runtime principal usa Neon.
+output.include_evidence=true
 ```
 
 ## Separación runtime / ops
 
 ```txt
 gmb_cidef = runtime/agente
-gmb_cidef_ops = captura/backfill/index/admin
+gmb_cidef_ops = captura/admin
 ```
 
-Flujo de datos:
+Flujo:
 
 ```txt
 1. ops captura Google Places.
-2. ops guarda snapshot/reviews en Redis.
-3. ops hace backfill a place_daily_metrics.
-4. runtime responde desde Neon.
-5. Redis se usa para evidencia o fallback legacy.
+2. ops guarda snapshots/reviews en Neon.
+3. runtime responde desde Neon.
 ```
 
 ## Regla importante
 
 ```txt
 El LLM nunca construye keys.
-El backend resuelve todas las keys internas.
+El backend resuelve toda la persistencia.
 ```
