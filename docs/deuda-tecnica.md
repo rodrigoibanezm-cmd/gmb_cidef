@@ -8,26 +8,22 @@ No es roadmap comercial.
 
 ## Estado actual
 
-Neon ya es default runtime.
-
-Resuelto:
-
 ```txt
-/api/query/compare usa Neon por default
+runtime Neon-only
+/api/query/compare usa Neon
 /api/agent/router usa Neon
-Redis queda como fallback explícito con ?engine=redis
-shape=compact soporta agregados
-captura/backfill/index viven en gmb_cidef_ops
+evidencia sale desde place_reviews en Neon
+tenant_id es obligatorio
+Redis/Upstash eliminado del runtime
 ```
 
 ## Prioridad actual
 
 ```txt
 1. client_config / tenant ownership
-2. limpiar endpoints legacy
+2. limpiar endpoints legacy no usados
 3. limpiar geografía CIDEF
-4. backfill por lotes en ops
-5. temporal avanzado
+4. temporal avanzado
 ```
 
 No tocar todavía:
@@ -75,7 +71,7 @@ el tenant no debe decidir seguridad
 el tenant solo puede ser routing operativo hasta que exista autenticación real
 ```
 
-## 2. Endpoints legacy mezclados con endpoints nuevos
+## 2. Endpoints legacy de compare
 
 Estado:
 
@@ -86,17 +82,17 @@ DEUDA TÉCNICA
 Problema:
 
 ```txt
-conviven endpoints legacy de compare con el nuevo agent router y query engine
+pueden quedar endpoints antiguos de comparación fuera del flujo agent/router + query/compare
 ```
 
 Impacto:
 
 ```txt
 confusión operativa
-riesgo de usar endpoints viejos por error
+riesgo de usar rutas viejas por error
 ```
 
-Endpoints legacy:
+Endpoints a revisar:
 
 ```txt
 GET /api/compare-all
@@ -107,7 +103,6 @@ Acción sugerida:
 
 ```txt
 marcarlos como deprecated
-moverlos explícitamente a legacy/debug
 o eliminarlos si ya no tienen uso operativo
 ```
 
@@ -122,7 +117,7 @@ DEUDA DE CATÁLOGO
 Problema:
 
 ```txt
-CIDEF consulta bien por marca/rating, pero todavía tiene region=unknown y market_group demasiado granular en varios places
+CIDEF consulta bien por marca/rating, pero todavía puede tener region=unknown o market_group demasiado granular en varios places
 ```
 
 Impacto:
@@ -137,33 +132,7 @@ Acción sugerida:
 normalizar normalized_location, market_group y region para CIDEF igual que se hizo con Sodimac
 ```
 
-## 4. Backfill por lotes en ops
-
-Estado:
-
-```txt
-DEUDA OPERATIVA
-```
-
-Problema:
-
-```txt
-CIDEF tiene 727 places y el backfill completo puede demorarse
-```
-
-Impacto:
-
-```txt
-riesgo de timeout o latencia alta en Vercel
-```
-
-Acción sugerida:
-
-```txt
-agregar limit y offset a /api/admin/backfill/place-daily-metrics en gmb_cidef_ops
-```
-
-## 5. Temporal lento y limitado
+## 4. Temporal lento y limitado
 
 Estado:
 
@@ -197,34 +166,7 @@ piloto actual
 ranking/gap actual basado en Neon
 ```
 
-## 6. Mezcla histórica de keys de reviews
-
-Estado:
-
-```txt
-DEUDA TÉCNICA
-```
-
-Problema:
-
-```txt
-puede existir mezcla histórica de keys viejas y nuevas para reviews/evidencia
-```
-
-Modelo deseado:
-
-```txt
-gmb:review:{place_id}:{review_hash}
-gmb:review_seen:{date}:{place_id}:{review_hash}
-```
-
-Acción sugerida:
-
-```txt
-migrar o limpiar keys históricas cuando el modelo esté estable
-```
-
-## 7. Shape minimal
+## 5. Shape minimal
 
 Estado:
 
