@@ -2,13 +2,12 @@
 
 Este documento registra decisiones pendientes o deuda de diseño que no debe mezclarse con la documentación ya validada.
 
-## 1. Multi-tenant
+## 1. Multi-tenant autenticado
 
 Estado:
 
 ```txt
 pendiente de diseño
-no implementado
 ```
 
 Contexto:
@@ -18,34 +17,23 @@ El backend debe ser común para múltiples clientes.
 El query engine debe seguir siendo agnóstico a clientes.
 ```
 
-Hipótesis MVP posible:
+Estado actual:
 
 ```txt
-N Custom GPT shells
-1 backend común
-tenant declara ruta
-token autoriza acceso
-backend valida ambos
+runtime multi-tenant operativo vía tenant_id
 ```
 
 Riesgo:
 
 ```txt
-tenant no puede ser seguridad.
-tenant solo puede ser routing operativo.
+tenant no puede ser seguridad
+tenant solo puede ser routing operativo
 ```
 
 Dirección más probable:
 
 ```txt
 OAuth
-```
-
-Decisión futura esperada:
-
-```txt
-El tenant no lo decide el LLM.
-El tenant se deriva de la identidad autenticada.
 ```
 
 Diseño futuro deseado:
@@ -61,9 +49,9 @@ revocación de acceso
 No implementar todavía:
 
 ```txt
-tenant en payload como seguridad
 multi-login propio
 OAuth prematuro
+roles complejos
 ```
 
 ## 2. Client config
@@ -83,28 +71,11 @@ Para multi-tenant real, la configuración del cliente no puede estar hardcodeada
 Debe resolver:
 
 ```txt
-dataset
 own_values
-places base
-índices
 permisos
-fecha disponible
 default_store_role
 default_shape
 allowed_intents
-```
-
-Ejemplo conceptual:
-
-```json
-{
-  "tenant": "cidef",
-  "dataset_key": "gmb:classified:cidef:v1",
-  "own_values": ["own"],
-  "default_store_role": "dealer",
-  "default_shape": "compact",
-  "allowed_intents": ["ranking", "gap", "evidence", "action", "cause"]
-}
 ```
 
 ## 3. Temporal avanzado
@@ -127,7 +98,14 @@ Falta:
 temporal por brand
 temporal por operator
 temporal por store_role
-diferencia de reviews entre fechas usando review_seen:{date}
+temporal por region
+temporal por market_group
+```
+
+Objetivo:
+
+```txt
+resolver temporal completamente desde place_daily_metrics en Neon
 ```
 
 ## 4. Limpieza futura
@@ -135,7 +113,7 @@ diferencia de reviews entre fechas usando review_seen:{date}
 Pendientes técnicos:
 
 ```txt
-separar endpoints legacy de endpoints nuevos
-limpiar mezcla histórica de keys viejas/nuevas en evidencia
+eliminar endpoints compare legacy si siguen vivos
+limpiar helpers muertos no usados
 evaluar shape="minimal" si compact aún pesa demasiado
 ```
