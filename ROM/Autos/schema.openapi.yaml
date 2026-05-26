@@ -1,0 +1,246 @@
+openapi: 3.1.0
+info:
+  title: Autos Reputation Agent Router
+  version: 1.0.0
+  description: Action schema for the CIDEF automotive reputation agent.
+
+servers:
+  - url: https://gmb-cidef.vercel.app
+
+paths:
+  /api/agent/router:
+    post:
+      operationId: routeAutosAgentIntent
+      summary: Route an automotive reputation analysis request to the backend query engine
+      description: Uses tenant_id fixed to cidef and queries the Neon runtime through the agent router.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRouterRequest'
+      responses:
+        '200':
+          description: Routed query result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRouterResponse'
+
+components:
+  schemas:
+    AgentRouterRequest:
+      type: object
+      required:
+        - intent
+        - tenant_id
+      additionalProperties: false
+      properties:
+        tenant_id:
+          type: string
+          const: cidef
+          description: Fixed tenant for the Autos agent. Do not change.
+        intent:
+          type: string
+          enum:
+            - ranking
+            - gap
+            - temporal
+            - evidence
+            - action
+            - cause
+        params:
+          $ref: '#/components/schemas/AgentRouterParams'
+
+    AgentRouterParams:
+      type: object
+      additionalProperties: false
+      properties:
+        date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        date_from:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        date_to:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        scope:
+          type: string
+          enum:
+            - intra
+            - extra
+            - temporal
+        dimension:
+          type: string
+          enum:
+            - location
+            - brand
+            - operator
+            - store_role
+            - market_group
+            - region
+        metric:
+          type: string
+          enum:
+            - rating
+            - reviews_count
+            - gap_vs_top
+            - position
+            - delta_rating
+            - delta_reviews_count
+            - delta_gap_vs_top
+            - delta_position
+        filters:
+          $ref: '#/components/schemas/QueryFilters'
+        output:
+          $ref: '#/components/schemas/QueryOutput'
+
+    QueryFilters:
+      type: object
+      additionalProperties: false
+      properties:
+        location:
+          type: string
+          description: Normalized location filter when the user asks about a specific location.
+        market_group:
+          type: string
+          description: City or major market area.
+        region:
+          type: string
+          description: Region filter.
+        industry:
+          type: string
+          const: automotive
+          description: Fixed industry for Autos.
+        brand:
+          type: string
+        ownership_group:
+          type: string
+          enum:
+            - own
+            - competitor
+            - all
+        own_values:
+          type: array
+          items:
+            type: string
+        store_role:
+          type: string
+          enum:
+            - dealer
+            - service
+            - parts
+            - all
+        valid_only:
+          type: boolean
+
+    QueryOutput:
+      type: object
+      additionalProperties: false
+      properties:
+        shape:
+          type: string
+          enum:
+            - compact
+            - raw
+        max_rows:
+          type: integer
+          minimum: 1
+          maximum: 200
+        include_evidence:
+          type: boolean
+        evidence_per_row:
+          type: integer
+          minimum: 1
+          maximum: 10
+        sort:
+          type: string
+          enum:
+            - asc
+            - desc
+
+    AgentRouterResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        tenant_id:
+          type: string
+        intent:
+          type: string
+        engine:
+          type: string
+        semantic_required:
+          type: boolean
+        shape:
+          type: string
+        result:
+          type: object
+          properties:
+            ok:
+              type: boolean
+            query:
+              type: object
+            rows:
+              type: array
+              items:
+                $ref: '#/components/schemas/CompactRow'
+            row_count:
+              type: integer
+            source:
+              type: string
+
+    CompactRow:
+      type: object
+      properties:
+        location:
+          type: string
+        brand:
+          type: string
+        operator:
+          type: string
+        store_role:
+          type: string
+        market_group:
+          type: string
+        region:
+          type: string
+        rating:
+          type: number
+        reviews:
+          type: integer
+        confidence:
+          type: string
+          enum:
+            - baja
+            - media
+            - alta
+        gap_vs_top:
+          type: number
+        position:
+          type: integer
+        top_brand:
+          type: string
+        top_name:
+          type: string
+        top_rating:
+          type: number
+        top_reviews:
+          type: integer
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evidence'
+
+    Evidence:
+      type: object
+      properties:
+        rating:
+          type: number
+        text:
+          type: string
+        author:
+          type: string
+        review_date:
+          type: string
