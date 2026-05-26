@@ -80,6 +80,8 @@ components:
             - brand
             - operator
             - store_role
+            - market_group
+            - region
           description: Aggregation dimension. Default is location.
         metric:
           type: string
