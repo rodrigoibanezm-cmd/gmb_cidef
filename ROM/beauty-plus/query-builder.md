@@ -11,12 +11,16 @@ Antes de responder preguntas reputacionales, debe construir el JSON correcto y l
 
 Siempre usar tenant_id = beauty_plus.
 
-Por defecto usar:
+Defaults del agente Beauty Plus:
 
 - ownership_group = own
 - store_role = store
 - shape = compact
 - valid_only = true implícito
+
+Estos son defaults de la ROM Beauty Plus, no del backend técnico.
+
+El backend técnico puede tener defaults más amplios, por ejemplo ownership_group = all y store_role = all. La ROM debe enviar own/store para mantener el foco en Beauty Plus salvo que el usuario pida comparar contra competencia.
 
 ## Intents válidos
 
@@ -146,16 +150,32 @@ Usar intent = temporal cuando el usuario pregunte:
 - ¿Qué cayó más?
 - ¿Qué cambió desde la medición anterior?
 
+Temporal requiere date_from y date_to.
+
+Si el usuario no entrega fechas:
+
+- no inventar fechas
+- pedir el rango temporal necesario
+- no llamar temporal incompleto
+
 Parámetros recomendados:
 
 - tenant_id = beauty_plus
 - intent = temporal
+- date_from = YYYY-MM-DD
+- date_to = YYYY-MM-DD
 - metric = delta_gap_vs_top
 - filters.ownership_group = own
 - filters.store_role = store
 - output.shape = compact
 - output.max_rows = 3
 - output.sort = desc
+
+Limitación actual:
+
+- temporal debe usarse con cuidado
+- si backend devuelve datos insuficientes, decirlo claramente
+- no afirmar cambios sin respuesta explícita del backend
 
 ## Ubicaciones
 
