@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Autos Reputation Agent Router
   version: 1.0.0
-  description: Action schema for the CIDEF automotive reputation agent.
+  description: Action schema for the automotive reputation agent.
 
 servers:
   - url: https://gmb-cidef.vercel.app
@@ -12,7 +12,7 @@ paths:
     post:
       operationId: routeAutosAgentIntent
       summary: Route an automotive reputation analysis request to the backend query engine
-      description: Uses tenant_id fixed to cidef and queries the Neon runtime through the agent router.
+      description: Uses tenant_id fixed to autos and queries the Neon runtime through the agent router.
       requestBody:
         required: true
         content:
@@ -38,7 +38,7 @@ components:
       properties:
         tenant_id:
           type: string
-          const: cidef
+          const: autos
           description: Fixed tenant for the Autos agent. Do not change.
         intent:
           type: string
@@ -228,6 +228,18 @@ components:
           type: number
         top_reviews:
           type: integer
+        date_from:
+          type: string
+        date_to:
+          type: string
+        delta_rating:
+          type: number
+        delta_reviews_count:
+          type: number
+        delta_gap_vs_top:
+          type: number
+        delta_position:
+          type: number
         evidence:
           type: array
           items:
