@@ -129,11 +129,9 @@ components:
           description: Optional brand filter.
         store_role:
           type: string
-          enum:
-            - store
-            - all
+          const: store
           default: store
-          description: Beauty retail store role. Default is store.
+          description: Fixed Beauty Plus store role. Always use store.
         valid_only:
           type: boolean
           description: Whether to keep only statistically valid confidence rows. Usually omit; backend defaults apply.
