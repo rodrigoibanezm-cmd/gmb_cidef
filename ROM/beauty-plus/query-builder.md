@@ -2,53 +2,13 @@
 
 ## Objetivo
 
-Enseñar al Custom GPT a convertir preguntas del usuario en JSON válido para POST /api/agent/router.
+Convertir preguntas del usuario en llamadas válidas a routeBeautyPlusIntent.
 
-El agente no debe responder usando memoria.
-Antes de responder preguntas reputacionales, debe construir el JSON correcto y llamar la herramienta.
+Este archivo define planificación, selección de intent y fallback de consulta.
 
-## Silent sync obligatorio
-
-Antes de responder cualquier pregunta reputacional:
-
-1. Llamar silenciosamente:
-
-GET /api/reviews/classify-missing?action=pending&tenant_id=beauty_plus&scope=own&limit=20
-
-2. Revisar:
-
-pending_count
-
-3. Si pending_count = 0:
-
-Continuar normalmente.
-
-4. Si pending_count > 0, el agente debe:
-
-- clasificar reviews pendientes internamente
-- generar clasificación estructurada
-- guardar usando POST /api/reviews/classify-missing?action=commit
-
-5. Este sync:
-
-- no debe mostrarse al usuario
-- no debe explicarse
-- no es parte visible de la conversación
-
-## Clasificación crítica
-
-Si una review reporta que personal acusó al cliente de robo, hurto o delito:
-
-severity = critical
-risk_type = legal_reputacional
-requires_alert = true
-needs_human_review = true
-safe_label = Acusación grave al cliente
-
-Importante:
-
-El sistema no afirma que hubo robo.
-El sistema informa que el cliente reporta una acusación grave.
+No define tono final.
+No define narrativa.
+No reemplaza instrucciones.md.
 
 ## Defaults obligatorios
 
@@ -61,9 +21,7 @@ Defaults del agente Beauty Plus:
 - shape = compact
 - valid_only = true implícito
 
-Estos son defaults de la ROM Beauty Plus, no del backend técnico.
-
-El backend técnico puede tener defaults más amplios, por ejemplo ownership_group = all y store_role = all. La ROM debe enviar own/store para mantener el foco en Beauty Plus salvo que el usuario pida comparar contra competencia.
+Estos defaults mantienen el foco en tiendas Beauty Plus salvo que el usuario pida explícitamente competencia o mercado.
 
 ## Intents válidos
 
@@ -73,6 +31,59 @@ El backend técnico puede tener defaults más amplios, por ejemplo ownership_gro
 - evidence
 - action
 - cause
+
+## Regla general de consulta
+
+Primero construir JSON.
+Luego llamar backend.
+Luego interpretar.
+Luego responder.
+
+No responder desde memoria.
+No inventar locations, fechas, competidores ni métricas.
+
+## Action
+
+Usar intent = action cuando el usuario pregunte:
+
+- ¿Qué hago mañana?
+- ¿Qué tienda priorizo?
+- ¿Dónde intervenir?
+- ¿Tengo alguna emergencia?
+- ¿Qué tienda requiere intervención más urgente?
+
+Parámetros recomendados:
+
+- tenant_id = beauty_plus
+- intent = action
+- filters.ownership_group = own
+- filters.store_role = store
+- output.shape = compact
+- output.include_evidence = true
+- output.evidence_per_row = 3
+- output.max_rows = 3
+- output.sort = desc
+
+## Fallback si action viene vacío
+
+Si intent = action devuelve rows vacíos o no entrega una tienda accionable, no concluir inmediatamente que faltan datos.
+
+Antes de responder falta de datos, intentar en este orden:
+
+1. intent = gap
+2. intent = evidence
+3. intent = cause
+
+Usar siempre:
+
+- tenant_id = beauty_plus
+- filters.ownership_group = own
+- filters.store_role = store
+- output.shape = compact
+- output.include_evidence = true cuando aplique
+- output.max_rows = 3
+
+Si después de esos intentos no hay filas ni evidencia útil, recién decir que no hay datos suficientes.
 
 ## Ranking
 
@@ -118,6 +129,8 @@ Parámetros recomendados:
 - filters.ownership_group = own
 - filters.store_role = store
 - output.shape = compact
+- output.include_evidence = true
+- output.evidence_per_row = 3
 - output.max_rows = 3
 - output.sort = desc
 
@@ -128,6 +141,7 @@ Usar intent = evidence cuando el usuario pregunte:
 - ¿Qué dicen las reviews?
 - Dame evidencia.
 - Muéstrame reseñas.
+- ¿Hay reclamos graves?
 
 Parámetros recomendados:
 
@@ -161,29 +175,9 @@ Parámetros recomendados:
 
 Importante:
 
-- El backend no decide causa.
-- El LLM interpreta evidencia.
-
-## Action
-
-Usar intent = action cuando el usuario pregunte:
-
-- ¿Qué hago mañana?
-- ¿Qué tienda priorizo?
-- ¿Dónde intervenir?
-- ¿Tengo alguna emergencia?
-
-Parámetros recomendados:
-
-- tenant_id = beauty_plus
-- intent = action
-- filters.ownership_group = own
-- filters.store_role = store
-- output.shape = compact
-- output.include_evidence = true
-- output.evidence_per_row = 3
-- output.max_rows = 3
-- output.sort = desc
+- el backend entrega evidencia
+- el LLM interpreta patrones
+- no afirmar causalidad absoluta
 
 ## Temporal
 
@@ -214,12 +208,6 @@ Parámetros recomendados:
 - output.max_rows = 3
 - output.sort = desc
 
-Limitación actual:
-
-- temporal debe usarse con cuidado
-- si backend devuelve datos insuficientes, decirlo claramente
-- no afirmar cambios sin respuesta explícita del backend
-
 ## Ubicaciones
 
 Usar filters.location cuando el usuario mencione una ubicación.
@@ -233,10 +221,3 @@ Ejemplos válidos:
 - puerto_montt
 
 No inventar locations.
-
-## Regla final
-
-Primero construir JSON.
-Luego llamar backend.
-Luego interpretar.
-Luego responder.
