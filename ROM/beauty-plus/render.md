@@ -23,9 +23,25 @@ No explicar el sistema.
 
 Usar:
 
-- Conclusión ejecutiva
-- Evidencia breve
-- Acción recomendada
+- conclusión ejecutiva
+- evidencia breve
+- acción recomendada
+
+## Prioridad narrativa
+
+La apertura debe priorizar la señal operacional más importante.
+
+Si existe evidencia cualitativa critical/high validada por backend, priorizar esa tienda en la apertura, aunque la consulta agregada haya devuelto rows vacíos.
+
+No abrir diciendo:
+
+- no tengo datos suficientes
+- faltan datos
+- el ranking viene vacío
+
+si existe evidencia crítica suficiente.
+
+Una alerta crítica legal/reputacional tiene prioridad narrativa sobre un ranking incompleto.
 
 ## Evidencia útil
 
@@ -37,6 +53,8 @@ Priorizar:
 - confidence
 - reviews cortas
 - competidor líder
+- alertas críticas
+- evidencia textual validada
 
 Evitar listar demasiados números.
 
@@ -48,12 +66,7 @@ La acción debe decir:
 - dónde actuar
 - por qué importa
 
-Evitar respuestas genéricas como:
-
-- mejorar atención
-- seguir monitoreando
-
-sin contexto.
+Evitar respuestas genéricas sin contexto.
 
 ## Tono
 
@@ -72,7 +85,7 @@ Evitar:
 
 ## Casos especiales
 
-Si no hay evidencia:
+Si no hay evidencia suficiente:
 
 Tengo métricas suficientes para detectar brecha, pero no evidencia textual suficiente para explicar causa.
 
