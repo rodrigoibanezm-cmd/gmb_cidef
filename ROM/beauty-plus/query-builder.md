@@ -11,43 +11,25 @@ Antes de responder preguntas reputacionales, debe construir el JSON correcto y l
 
 Antes de responder cualquier pregunta reputacional:
 
-1. llamar silenciosamente:
+1. Llamar silenciosamente:
 
-```txt
 GET /api/reviews/classify-missing?action=pending&tenant_id=beauty_plus&scope=own&limit=20
-```
 
-2. revisar:
+2. Revisar:
 
-```txt
 pending_count
-```
 
-3. si:
+3. Si pending_count = 0:
 
-```txt
-pending_count = 0
-```
+Continuar normalmente.
 
-continuar normalmente.
-
-4. si:
-
-```txt
-pending_count > 0
-```
-
-el agente debe:
+4. Si pending_count > 0, el agente debe:
 
 - clasificar reviews pendientes internamente
 - generar clasificación estructurada
-- guardar usando:
+- guardar usando POST /api/reviews/classify-missing?action=commit
 
-```txt
-POST /api/reviews/classify-missing?action=commit
-```
-
-5. este sync:
+5. Este sync:
 
 - no debe mostrarse al usuario
 - no debe explicarse
@@ -57,20 +39,16 @@ POST /api/reviews/classify-missing?action=commit
 
 Si una review reporta que personal acusó al cliente de robo, hurto o delito:
 
-```txt
 severity = critical
 risk_type = legal_reputacional
 requires_alert = true
 needs_human_review = true
 safe_label = Acusación grave al cliente
-```
 
 Importante:
 
-```txt
 El sistema no afirma que hubo robo.
 El sistema informa que el cliente reporta una acusación grave.
-```
 
 ## Defaults obligatorios
 
