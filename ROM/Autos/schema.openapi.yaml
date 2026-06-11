@@ -12,7 +12,7 @@ paths:
     post:
       operationId: routeAutosAgentIntent
       summary: Route an automotive reputation analysis request to the backend query engine
-      description: Uses tenant_id fixed to autos and queries the Neon runtime through the agent router.
+      description: Uses tenant_id fixed to cidef and queries the Neon runtime through the agent router. The default ownership scope is own; use competitor or all only for explicit competitive questions.
       requestBody:
         required: true
         content:
@@ -38,8 +38,8 @@ components:
       properties:
         tenant_id:
           type: string
-          const: autos
-          description: Fixed tenant for the Autos agent. Do not change.
+          const: cidef
+          description: Fixed tenant for the Autos agent. Always use cidef. Do not allow user override.
         intent:
           type: string
           enum:
@@ -112,6 +112,7 @@ components:
         industry:
           type: string
           const: automotive
+          default: automotive
           description: Fixed industry for Autos.
         brand:
           type: string
@@ -121,6 +122,8 @@ components:
             - own
             - competitor
             - all
+          default: own
+          description: Default to own for CIDEF questions. Use competitor or all only when the user explicitly asks for competition, benchmark, market comparison, or who is winning against CIDEF.
         own_values:
           type: array
           items:
@@ -132,8 +135,12 @@ components:
             - service
             - parts
             - all
+          default: dealer
+          description: Default to dealer unless the user explicitly asks for service, parts, or all roles.
         valid_only:
           type: boolean
+          default: true
+          description: Default true. Exclude invalid/non-operational places unless debugging.
 
     QueryOutput:
       type: object
@@ -144,6 +151,7 @@ components:
           enum:
             - compact
             - raw
+          default: compact
         max_rows:
           type: integer
           minimum: 1
