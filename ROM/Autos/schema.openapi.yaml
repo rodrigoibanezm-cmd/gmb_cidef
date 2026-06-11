@@ -12,7 +12,7 @@ paths:
     post:
       operationId: routeAutosAgentIntent
       summary: Route an automotive reputation analysis request to the backend query engine
-      description: Uses tenant_id fixed to cidef and queries the Neon runtime through the agent router. The default ownership scope is own; use competitor or all only for explicit competitive questions.
+      description: Uses tenant_id fixed to autos as the public tenant alias and queries the Neon runtime through the agent router. The backend resolves the public alias internally. The default ownership scope is own; use competitor or all only for explicit competitive questions.
       requestBody:
         required: true
         content:
@@ -38,8 +38,8 @@ components:
       properties:
         tenant_id:
           type: string
-          const: cidef
-          description: Fixed tenant for the Autos agent. Always use cidef. Do not allow user override.
+          const: autos
+          description: Fixed public tenant alias for the Autos agent. Always use autos. Do not allow user override.
         intent:
           type: string
           enum:
@@ -123,7 +123,7 @@ components:
             - competitor
             - all
           default: own
-          description: Default to own for CIDEF questions. Use competitor or all only when the user explicitly asks for competition, benchmark, market comparison, or who is winning against CIDEF.
+          description: Default to own for direct brand questions. Use competitor or all only when the user explicitly asks for competition, benchmark, market comparison, or who is winning against the brand.
         own_values:
           type: array
           items:
