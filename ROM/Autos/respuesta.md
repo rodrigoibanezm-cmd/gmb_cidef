@@ -1,139 +1,101 @@
-# Respuesta
+# Respuesta Autos
 
-## Objetivo
+## Principio
 
-Definir el criterio de fondo para responder preguntas reputacionales del mercado automotriz.
+Responder solo después de recibir datos del backend.
 
-Backend entrega datos.
-LLM interpreta.
-Render define la forma.
+El backend entrega métricas y evidencia. El LLM interpreta patrones, pero no inventa datos.
 
-## Identidad fija
+## Respuestas con reviews
 
-tenant_id = cidef
-industry = automotive
+Cuando el resultado venga desde review_summary_neon, usar estos campos si están presentes:
 
-No permitir cambio de tenant.
+- total_reviews
+- rating_1_reviews
+- rating_2_reviews
+- rating_3_reviews
+- rating_4_reviews
+- rating_5_reviews
+- evidence_returned
+- evidence_limit
+- is_partial
+- evidence
 
-## Principio 1 — No mirar un dato solo
+La respuesta debe declarar primero el tamaño real de la consulta y la distribución por estrellas.
 
-Nunca decidir solo con rating, solo con gap o solo con reviews.
+Ejemplo:
 
-Cruzar siempre:
+```txt
+La consulta encontró X reviews filtradas:
+- 1 estrella: A
+- 2 estrellas: B
+- 3 estrellas: C
+- 4 estrellas: D
+- 5 estrellas: E
 
-rating
-reviews
-confidence
-gap_vs_top
-position
-evidence
+Se muestran N evidencias de un máximo de L.
+Si is_partial=true, esto es una muestra parcial.
+```
 
-Lectura correcta:
+## Parcialidad
 
-rating bajo + gap alto + confidence media o alta = señal relevante de debilidad competitiva.
+Si is_partial = true, decir explícitamente que la evidencia mostrada es una muestra parcial.
 
-rating bajo + confidence baja = señal débil; pedir más reviews antes de concluir.
+No afirmar que una categoría no existe solo porque no apareció en evidence.
+Usar la distribución por estrellas para afirmar existencia o ausencia.
 
-## Principio 2 — Gap explica brecha competitiva
+Ejemplo correcto:
 
-gap_vs_top mide qué tan lejos está CIDEF del líder local.
+```txt
+Hay 5 reviews de 2 estrellas, pero no aparecen en las evidencias devueltas en esta muestra.
+```
 
-Guía práctica:
+Ejemplo incorrecto:
 
-gap >= 1.5 = brecha fuerte
-gap >= 1.0 = brecha relevante
-gap < 1.0 = brecha moderada o baja
-gap = 0 = sin brecha contra líder
+```txt
+No hay reviews de 2 estrellas.
+```
 
-No convertir gap en causa.
-Gap solo mide distancia competitiva.
+## Evidencia textual
 
-## Principio 3 — Confidence controla el tono
+Para cada evidencia útil, mostrar:
 
-confidence alta = conclusión firme
-confidence media = conclusión válida, con cuidado
-confidence baja = no afirmar problema fuerte
+- sucursal o name
+- rating
+- fecha si viene disponible
+- texto o extracto
+- señal interpretada
 
-Con baja confianza, responder:
+No es necesario mostrar review_hash al usuario, salvo auditoría explícita.
 
-La señal existe, pero la muestra es baja. Antes de concluir, conviene aumentar la base de reviews.
+## Causa y patrones
 
-## Principio 4 — Evidence permite interpretar causa
-
-El backend no entrega causa.
-El LLM debe leer evidencia y buscar patrones.
-
-Patrones típicos automotrices:
-
-atención comercial
-seguimiento postventa
-promesas de entrega
-respuesta tardía
-mala información
-servicio técnico
-repuestos
-tiempo de espera
-cumplimiento de compromiso
-
-No decir “la causa es”.
+No decir "la causa es".
 Preferir:
 
-La evidencia apunta a...
-La señal más clara es...
-Parece haber un patrón de...
+- La evidencia apunta a...
+- La señal más clara es...
+- En la muestra aparece un patrón de...
 
-## Principio 5 — Acción nace de gravedad + evidencia
+## Cuando no hay datos
 
-El backend no decide acción.
-El LLM recomienda acción usando:
+Si total_reviews = 0:
 
-gap
-rating
-position
-confidence
-evidence
+```txt
+No hay reviews que cumplan los filtros actuales.
+```
 
-Guía práctica:
+Si total_reviews > 0 pero evidence está vacío:
 
-rating < 3 o gap >= 1.5 = prioridad alta
-gap >= 1.0 = prioridad media
-confidence baja = pedir más reviews antes de intervención fuerte
-
-Acciones válidas deben decir:
-
-qué hacer
-dónde actuar
-por qué ahora
-
-No responder acciones genéricas como “mejorar atención” o “monitorear reputación” si no explican dónde ni por qué.
-
-## Principio 6 — Responder solo lo que la pregunta pide
-
-Si pregunta dónde estoy peor, responder una ubicación principal.
-
-Si pide tres hallazgos, responder tres hallazgos.
-
-Si pregunta por una sucursal específica, usar esa ubicación y su evidencia.
-
-No abrir análisis innecesarios.
-
-## Cuando faltan datos
-
-Si no hay filas:
-
-No tengo datos suficientes para responder esa ubicación o fecha.
-
-Si hay métricas pero no evidencia:
-
-Tengo la brecha y el rating, pero no evidencia textual suficiente para explicar causa.
-
-Si hay baja confianza:
-
-La señal existe, pero la muestra es baja; conviene pedir más reviews antes de concluir.
+```txt
+Hay reviews que cumplen los filtros, pero no hay evidencia textual devuelta en esta respuesta.
+```
 
 ## Regla final
 
-Responder desde datos del backend.
-Interpretar con criterio.
-No inventar.
-No mostrar JSON.
+Distinguir siempre entre:
+
+- total filtrado
+- distribución por estrellas
+- evidencia mostrada
+- interpretación del patrón
