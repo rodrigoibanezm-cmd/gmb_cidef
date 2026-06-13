@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Autos Reputation Agent Router
-  version: 1.0.0
+  version: 1.1.0
   description: Action schema for the automotive reputation agent.
 
 servers:
@@ -12,7 +12,7 @@ paths:
     post:
       operationId: routeAutosAgentIntent
       summary: Route an automotive reputation analysis request to the backend query engine
-      description: Uses tenant_id fixed to autos as the public tenant alias and queries the Neon runtime through the agent router. The backend resolves the public alias internally. The default ownership scope is own; use competitor or all only for explicit competitive questions.
+      description: Uses tenant_id fixed to autos as the public tenant alias and queries the Neon runtime through the agent router. The default ownership scope is own; use competitor or all only for explicit competitive questions.
       requestBody:
         required: true
         content:
@@ -49,6 +49,7 @@ components:
             - evidence
             - action
             - cause
+            - review_count
         params:
           $ref: '#/components/schemas/AgentRouterParams'
 
@@ -141,6 +142,16 @@ components:
           type: boolean
           default: true
           description: Default true. Exclude invalid/non-operational places unless debugging.
+        rating_min:
+          type: number
+          minimum: 1
+          maximum: 5
+          description: Minimum review rating when the user asks for a star range.
+        rating_max:
+          type: number
+          minimum: 1
+          maximum: 5
+          description: Maximum review rating when the user asks for a star range.
 
     QueryOutput:
       type: object
@@ -161,7 +172,7 @@ components:
         evidence_per_row:
           type: integer
           minimum: 1
-          maximum: 10
+          maximum: 25
         sort:
           type: string
           enum:
@@ -196,6 +207,28 @@ components:
                 $ref: '#/components/schemas/CompactRow'
             row_count:
               type: integer
+            total_reviews:
+              type: integer
+            rating_1_reviews:
+              type: integer
+            rating_2_reviews:
+              type: integer
+            rating_3_reviews:
+              type: integer
+            rating_4_reviews:
+              type: integer
+            rating_5_reviews:
+              type: integer
+            evidence_returned:
+              type: integer
+            evidence_limit:
+              type: integer
+            is_partial:
+              type: boolean
+            evidence:
+              type: array
+              items:
+                $ref: '#/components/schemas/Evidence'
             source:
               type: string
 
@@ -256,6 +289,12 @@ components:
     Evidence:
       type: object
       properties:
+        place_id:
+          type: string
+        name:
+          type: string
+        review_hash:
+          type: string
         rating:
           type: number
         text:
@@ -263,4 +302,18 @@ components:
         author:
           type: string
         review_date:
+          type: string
+        sentiment:
+          type: string
+        topic:
+          type: string
+        severity:
+          type: string
+        risk_type:
+          type: string
+        requires_alert:
+          type: boolean
+        summary:
+          type: string
+        evidence_excerpt:
           type: string
