@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Autos Reputation Agent Router
-  version: 1.1.0
+  version: 1.1.1
   description: Action schema for the automotive reputation agent.
 
 servers:
@@ -167,12 +167,24 @@ components:
           type: integer
           minimum: 1
           maximum: 200
+          description: Maximum aggregate rows to return for ranking/gap/temporal intents. This does not control review pagination for evidence/review_count.
         include_evidence:
           type: boolean
         evidence_per_row:
           type: integer
           minimum: 1
-          maximum: 25
+          maximum: 200
+          description: Legacy evidence count hint. For evidence/review_count intents this is treated as review page size when limit is omitted.
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 200
+          description: Review page size for evidence/review_count intents. Use with offset to paginate all matching reviews.
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Zero-based review offset for evidence/review_count intents. Continue with next_offset until has_more is false.
         sort:
           type: string
           enum:
@@ -219,6 +231,18 @@ components:
               type: integer
             rating_5_reviews:
               type: integer
+            limit:
+              type: integer
+            offset:
+              type: integer
+            reviews_returned:
+              type: integer
+            has_more:
+              type: boolean
+            next_offset:
+              type:
+                - integer
+                - 'null'
             evidence_returned:
               type: integer
             evidence_limit:
@@ -226,6 +250,10 @@ components:
             is_partial:
               type: boolean
             evidence:
+              type: array
+              items:
+                $ref: '#/components/schemas/Evidence'
+            reviews:
               type: array
               items:
                 $ref: '#/components/schemas/Evidence'
