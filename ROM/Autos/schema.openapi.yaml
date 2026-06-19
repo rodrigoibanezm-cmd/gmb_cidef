@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Autos Reputation Agent Router
-  version: 1.1.1
+  version: 1.1.2
   description: Action schema for the automotive reputation agent.
 
 servers:
@@ -12,7 +12,7 @@ paths:
     post:
       operationId: routeAutosAgentIntent
       summary: Route an automotive reputation analysis request to the backend query engine
-      description: Uses tenant_id fixed to autos as the public tenant alias and queries the Neon runtime through the agent router. The default ownership scope is own; use competitor or all only for explicit competitive questions.
+      description: Uses tenant_id fixed to autos as the public tenant alias and queries the Neon runtime through the agent router.
       requestBody:
         required: true
         content:
@@ -39,7 +39,7 @@ components:
         tenant_id:
           type: string
           const: autos
-          description: Fixed public tenant alias for the Autos agent. Always use autos. Do not allow user override.
+          description: Fixed public tenant alias for Autos. Always use autos.
         intent:
           type: string
           enum:
@@ -50,6 +50,7 @@ components:
             - action
             - cause
             - review_count
+            - competitive_discovery_landscape
         params:
           $ref: '#/components/schemas/AgentRouterParams'
 
@@ -58,7 +59,9 @@ components:
       additionalProperties: false
       properties:
         date:
-          type: string
+          type:
+            - string
+            - 'null'
           pattern: '^\d{4}-\d{2}-\d{2}$'
         date_from:
           type: string
@@ -66,6 +69,7 @@ components:
         date_to:
           type: string
           pattern: '^\d{4}-\d{2}-\d{2}$'
+
         scope:
           type: string
           enum:
@@ -92,6 +96,45 @@ components:
             - delta_reviews_count
             - delta_gap_vs_top
             - delta_position
+
+        industry:
+          type: string
+          const: automotive
+          default: automotive
+          description: Top-level shortcut for competitive_discovery_landscape.
+        store_role:
+          type: string
+          enum:
+            - dealer
+            - service
+            - parts
+            - all
+          default: dealer
+          description: Top-level shortcut for competitive_discovery_landscape.
+        ownership_group:
+          type: string
+          enum:
+            - own
+            - competitor
+            - all
+          default: all
+          description: Top-level shortcut for competitive_discovery_landscape.
+        valid_only:
+          type: boolean
+          default: true
+          description: Top-level shortcut for competitive_discovery_landscape.
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 200
+          description: Page size for competitive_discovery_landscape places.
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Zero-based offset for competitive_discovery_landscape places.
+
         filters:
           $ref: '#/components/schemas/QueryFilters'
         output:
@@ -103,18 +146,14 @@ components:
       properties:
         location:
           type: string
-          description: Normalized location filter when the user asks about a specific location.
         market_group:
           type: string
-          description: City or major market area.
         region:
           type: string
-          description: Region filter.
         industry:
           type: string
           const: automotive
           default: automotive
-          description: Fixed industry for Autos.
         brand:
           type: string
         ownership_group:
@@ -124,7 +163,6 @@ components:
             - competitor
             - all
           default: own
-          description: Default to own for direct brand questions. Use competitor or all only when the user explicitly asks for competition, benchmark, market comparison, or who is winning against the brand.
         own_values:
           type: array
           items:
@@ -137,21 +175,17 @@ components:
             - parts
             - all
           default: dealer
-          description: Default to dealer unless the user explicitly asks for service, parts, or all roles.
         valid_only:
           type: boolean
           default: true
-          description: Default true. Exclude invalid/non-operational places unless debugging.
         rating_min:
           type: number
           minimum: 1
           maximum: 5
-          description: Minimum review rating when the user asks for a star range.
         rating_max:
           type: number
           minimum: 1
           maximum: 5
-          description: Maximum review rating when the user asks for a star range.
 
     QueryOutput:
       type: object
@@ -167,24 +201,24 @@ components:
           type: integer
           minimum: 1
           maximum: 200
-          description: Maximum aggregate rows to return for ranking/gap/temporal intents. This does not control review pagination for evidence/review_count.
+          description: Maximum aggregate rows for ranking/gap/temporal. Does not control review pagination.
         include_evidence:
           type: boolean
         evidence_per_row:
           type: integer
           minimum: 1
           maximum: 200
-          description: Legacy evidence count hint. For evidence/review_count intents this is treated as review page size when limit is omitted.
+          description: Legacy evidence hint. For evidence/review_count, limit controls real pagination.
         limit:
           type: integer
           minimum: 1
           maximum: 200
-          description: Review page size for evidence/review_count intents. Use with offset to paginate all matching reviews.
+          description: Review page size for evidence/review_count intents.
         offset:
           type: integer
           minimum: 0
           default: 0
-          description: Zero-based review offset for evidence/review_count intents. Continue with next_offset until has_more is false.
+          description: Zero-based review offset. Continue with next_offset until has_more is false.
         sort:
           type: string
           enum:
@@ -208,6 +242,7 @@ components:
           type: string
         result:
           type: object
+          additionalProperties: true
           properties:
             ok:
               type: boolean
@@ -259,6 +294,30 @@ components:
                 $ref: '#/components/schemas/Evidence'
             source:
               type: string
+            requested_date:
+              type:
+                - string
+                - 'null'
+            effective_captured_date:
+              type:
+                - string
+                - 'null'
+            universe:
+              type: object
+              additionalProperties: true
+            markets:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            places:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            pagination:
+              type: object
+              additionalProperties: true
 
     CompactRow:
       type: object
